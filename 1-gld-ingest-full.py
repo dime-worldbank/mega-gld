@@ -145,8 +145,7 @@ for dta_path in df_meta["dta_path"]:
 
     finally:
         for obj in ["pdf", "first_chunk", "chunk", "reader", "spark_df", "spark_schema"]:
-            if obj in locals():
-                del globals()[obj]
+            del obj
 
         gc.collect()
 
