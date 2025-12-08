@@ -114,13 +114,15 @@ if (length(new_files) > 0) {
   meta_details$filename <- sub("\\.dta$", "", meta_details$dta_path)
 
   new_meta <- tibble(
-    filename           = dataset_names,
+    filename = dataset_names,
     table_name = NA_character_,
-    dta_path           = new_files,
-    ingested           = FALSE,
-    published          = FALSE,
+    dta_path = new_files,
+    ingested = FALSE,
+    published = FALSE,
     harmonization = NA_character_,
-    household_level    = NA
+    household_level = NA,
+    version_label = NA_character_,
+    do_path = NA_character_
   ) %>%
     left_join(
       meta_details %>%
@@ -130,7 +132,7 @@ if (length(new_files) > 0) {
           M_version, A_version
         ),
       by = c("filename" = "filename")
-    )}
+    )
 
   copy_to(sc, new_meta, "tmp_new_meta", overwrite = TRUE)
 

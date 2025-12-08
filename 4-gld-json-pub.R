@@ -45,11 +45,11 @@ create_dataset <- function(json_data, api_key){
     url,
     httr::add_headers(`X-API-KEY` = api_key),
     body = json_data,
-    encode = "json",
-    httr::content_type_json(),
-    httr::accept_json()
+    encode = "json"
   )
-  httr::stop_for_status(resp)
+  if (httr::status_code(resp) >= 300) {
+    stop("HTTP error: ", httr::status_code(resp))
+  }
   httr::content(resp, as="parsed")
 }
 
@@ -60,7 +60,9 @@ upload_microdata_file <- function(idno, file_path, api_key){
     httr::add_headers(`X-API-KEY` = api_key),
     body = list(file = httr::upload_file(file_path))
   )
-  httr::stop_for_status(resp)
+  if (httr::status_code(resp) >= 300) {
+    stop("HTTP error: ", httr::status_code(resp))
+  }
   httr::content(resp, as="parsed")
 }
 
@@ -80,8 +82,10 @@ attach_to_gld <- function(idno, api_key) {
     body = body,
     encode = "json"
   )
-  httr::stop_for_status(resp)
-  httr::content(resp, as = "parsed")
+  if (httr::status_code(resp) >= 300) {
+    stop("HTTP error: ", httr::status_code(resp))
+  }
+  httr::content(resp, as="parsed")
 }
 
 
@@ -95,7 +99,9 @@ publish_dataset <- function(idno, api_key){
     body = body,
     encode = "json"
   )
-  httr::stop_for_status(resp)
+  if (httr::status_code(resp) >= 300) {
+    stop("HTTP error: ", httr::status_code(resp))
+  }
   httr::content(resp, as="parsed")
 }
 
@@ -115,7 +121,9 @@ create_resource <- function(idno, resource_body, api_key){
     body = resource_body,
     encode = "json"
   )
-  httr::stop_for_status(resp)
+  if (httr::status_code(resp) >= 300) {
+    stop("HTTP error: ", httr::status_code(resp))
+  }
   httr::content(resp, as="parsed")
 }
 
@@ -135,7 +143,9 @@ upload_resource_file <- function(idno, file_path, resourceId=NULL, api_key){
     httr::add_headers(`X-API-KEY` = api_key),
     body = body_list
   )
-  httr::stop_for_status(resp)
+  if (httr::status_code(resp) >= 300) {
+    stop("HTTP error: ", httr::status_code(resp))
+  }
   httr::content(resp, as="parsed")
 }
 
@@ -202,6 +212,7 @@ handle_doc_resources <- function(idno, dta_path, api_key,row) {
         filename = basename(zipfile)  
       )
       
+      res <- create_resource(idno, resource_body, api_key)
       upload_resource_file(idno, zipfile, resourceId=res$id, api_key=api_key)
       
       message("Uploaded QUESTIONNAIRE docs for ", idno)
@@ -243,57 +254,66 @@ json_files <- list.files(json_dir, pattern="\\.json$", full.names=TRUE)
 
 results <- lapply(json_files, function(jfile){
 
-  message("Processing: ", jfile)
-  json_obj <- jsonlite::read_json(jfile)
-  fname_json <- basename(jfile)                
-  fname_base <- sub("\\.json$","", fname_json)
+  tryCatch({
 
-  # lookup table_name in metadata
-  row <- merged_df %>% filter(filename == fname_base)
+    message("Processing: ", jfile)
+    json_obj <- jsonlite::read_json(jfile)
+    fname_json <- basename(jfile)                
+    fname_base <- sub("\\.json$","", fname_json)
 
-  if (nrow(row) == 0) {
-    warning("No metadata match for ", fname_base)
-    return(list(idno=fname_base, status="NO_METADATA"))
-  }
+    # lookup table_name in metadata
+    row <- merged_df %>% filter(filename == fname_base)
 
-  table_name <- row$table_name[1]  
-  #idno <- get_idno(json_obj, fname_json) <- this might be the the idno in the json. need to check when the url is whitelisted.
-  idno <- row$filename
+    if (nrow(row) == 0) {
+      warning("No metadata match for ", fname_base)
+      return(list(idno=fname_base, status="NO_METADATA"))
+    }
 
-  # 1 create dataset
-  create_dataset(json_obj, api_key)
+    table_name <- row$table_name[1]  
+    #idno <- get_idno(json_obj, fname_json) <- this might be the the idno in the json. need to check when the url is whitelisted.
+    idno <- row$filename
 
-  # 2 get and upload file
-  dta_path <- row$dta_path[1]   
-  upload_microdata_file(idno, dta_path, api_key)
+    # 1 create dataset
+    create_dataset(json_obj, api_key)
 
-  # 3 add do file as ext resources
-  if (!is.null(row$do_path) && nzchar(row$do_path)){
-    do_path <- row$do_path[1]
-    title = paste0("Stata Program for", row$survey_Extended, " ", row$year,  National Occupation and Employment Survey 2020, "Global Labour Database Harmonized Dataset")
-    resource_body <- list(
-      dctype = "prg",
-      dcformat = "text/plain",
-      title = title,
-      author = "Economic Policy - Growth and Jobs Unit",
-      description = "Stata Program for GLD Harmonized Data",
-      filename = basename(do_path)
-    )
-    res <- create_resource(idno, resource_body, api_key)
-    resourceId <- res$id 
-    upload_resource_file(idno, do_path, resourceId, api_key)
-  }
+    # 2 get and upload file
+    dta_path <- row$dta_path[1]   
+    upload_microdata_file(idno, dta_path, api_key)
 
-  # 4 doc resources
-  handle_doc_resources(idno, dta_path, api_key, row)
+    # 3 add do file as ext resources
+    if (!is.null(row$do_path) && nzchar(row$do_path)){
+      do_path <- row$do_path[1]
+      title = paste0("Stata Program for", row$survey_Extended, " ", row$year,  National Occupation and Employment Survey 2020, "Global Labour Database Harmonized Dataset")
+      resource_body <- list(
+        dctype = "prg",
+        dcformat = "text/plain",
+        title = title,
+        author = "Economic Policy - Growth and Jobs Unit",
+        description = "Stata Program for GLD Harmonized Data",
+        filename = basename(do_path)
+      )
+      res <- create_resource(idno, resource_body, api_key)
+      resourceId <- res$id 
+      upload_resource_file(idno, do_path, resourceId, api_key)
+    }
 
-  # 5 attach to gld
-  attach_to_gld(idno, api_key)
+    # 4 doc resources
+    handle_doc_resources(idno, dta_path, api_key, row)
 
-  # 6 publish
-  publish_dataset(idno, api_key)
+    # 5 attach to gld
+    attach_to_gld(idno, api_key)
 
-  return(list(idno=idno, table_name=table_name, status="OK"))
+    # 6 publish
+    publish_dataset(idno, api_key)
+
+    file.remove(jfile)
+
+    list(idno=idno, status="OK")
+  
+  }, error = function(e){
+
+    warning("FAILED: ", jfile, " -> ", conditionMessage(e))
+
+    list(idno=fname_base, status="FAILED", error=conditionMessage(e))
+  })
 })
-
-print(results)
