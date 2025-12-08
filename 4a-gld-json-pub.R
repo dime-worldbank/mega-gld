@@ -33,7 +33,7 @@ merged_df <- merged_df %>%
   )
 
 # api key is not in envvvar yet, this code won't run
-api_key <- Sys.getenv("NADA_API_KEY") 
+api_key <- dbutils.secrets.get("GLDKEYVAULT","NADA_API_KEY")
 
 BASE <- "https://metadataeditor.worldbank.org/index.php/api/"
 

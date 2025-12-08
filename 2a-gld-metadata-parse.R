@@ -16,7 +16,10 @@ target_schema  <- "prd_csc_mega.sgld48"
 metadata <- tbl(sc, metadata_table) %>% collect()
 
 unpublished <- metadata %>% 
-  filter(published == FALSE)
+  filter(published == FALSE,
+  #  !is.na(version_label),
+  #   nzchar(trimws(version_label))
+  )
 
 
 # --- find do files and parse info from them ---
@@ -273,8 +276,12 @@ parsed_df$version_label <- sapply(parsed_df$latest_v_text, make_version_label)
 # --- add to metadata table ---
 
 metadata <- metadata %>%
-  left_join(parsed_df %>% select(filename, version_label),
-            by = "filename")
+  mutate(
+    version_label = coalesce(parsed_df$version_label[ match(filename, parsed_df$filename) ],version_label),
+    do_path = coalesce(unpublished$do_path[ match(filename, unpublished$filename) ],do_path)
+  )
+
+
 
 copy_to(sc, metadata, "tmp_new_meta", overwrite = TRUE)
 
