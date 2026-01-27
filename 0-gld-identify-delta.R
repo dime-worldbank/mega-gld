@@ -1,18 +1,14 @@
 library(dplyr)
 library(sparklyr)
 
+source("helpers/config.R")
 source("helpers/filename_parsing.R")
-
-root_dir <- "/Volumes/prd_csc_mega/sgld48/vgld48/Documents"
 
 sc <- spark_connect(method = "databricks")
 
-target_schema  <- "prd_csc_mega.sgld48"
-metadata_table <- paste0(target_schema, "._ingestion_metadata")
+# --- find harmonized data folders and dta files ---
 
-# --- find harmonized data folders and dta files --- 
-
-country_dirs <- list.dirs(root_dir, recursive = FALSE)
+country_dirs <- list.dirs(ROOT_DIR, recursive = FALSE)
 
 dataset_dirs <- unlist(lapply(country_dirs, list.dirs, recursive = FALSE))
 
@@ -37,7 +33,7 @@ print("Latest tables filtered")
 
 # --- remove all older-version tables  ---
 
-metadata <- tbl(sc, metadata_table) %>% collect()
+metadata <- tbl(sc, METADATA_TABLE) %>% collect()
 
 old_versions <- setdiff(metadata$dta_path, latest_tables)
 
@@ -52,7 +48,7 @@ if (length(old_versions) > 0) {
 
     if (!is.na(tbl_name) && nzchar(tbl_name)) {
 
-      full_table <- paste0(target_schema, ".", tbl_name)
+      full_table <- paste0(TARGET_SCHEMA, ".", tbl_name)
 
       message("Deleting old version Delta table: ", full_table)
 
@@ -63,7 +59,7 @@ if (length(old_versions) > 0) {
     DBI::dbExecute(
       sc,
       paste0("
-        DELETE FROM ", metadata_table, "
+        DELETE FROM ", METADATA_TABLE, "
         WHERE dta_path = '", old_meta$dta_path[i], "'
       ")
     )
@@ -73,7 +69,7 @@ if (length(old_versions) > 0) {
 
 # --- check already ingested and add new files to metadata table ---
 
-metadata <- tbl(sc, metadata_table) %>% collect()
+metadata <- tbl(sc, METADATA_TABLE) %>% collect()
 
 already_ingested <- metadata$dta_path[metadata$ingested == TRUE]
 new_files <- setdiff(latest_tables, already_ingested)
@@ -117,10 +113,10 @@ if (length(new_files) > 0) {
     sc,
     paste0(
       "
-      INSERT INTO ", metadata_table, " (", paste(cols, collapse = ", "), ")
+      INSERT INTO ", METADATA_TABLE, " (", paste(cols, collapse = ", "), ")
       SELECT ", paste(paste0("t.", cols), collapse = ", "), "
       FROM tmp_new_meta t
-      LEFT ANTI JOIN ", metadata_table, " m
+      LEFT ANTI JOIN ", METADATA_TABLE, " m
       ON t.dta_path = m.dta_path
       "
     )

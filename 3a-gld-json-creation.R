@@ -6,25 +6,13 @@ library(sparklyr)
 library(httr)
 library(readxl)
 
-# --- set variables --- 
-
-OWNER  <- "worldbank"
-REPO   <- "gld"
-PATH   <- "Support/B%20-%20Country%20Survey%20Details"
-BASE   <- paste0("https://api.github.com/repos/", OWNER, "/", REPO, "/contents")
-BRANCH <- "main"
-
-root_dir <- "/Volumes/prd_csc_mega/sgld48/vgld48/Documents"
+source("helpers/config.R")
 
 sc <- spark_connect(method = "databricks")
 
-target_schema  <- "prd_csc_mega.sgld48"
-metadata_table <- paste0(target_schema, "._ingestion_metadata")
+# --- import metadata ---
 
-
-# --- import metadata --- 
-
-metadata <- tbl(sc, metadata_table) %>% collect()
+metadata <- tbl(sc, METADATA_TABLE) %>% collect()
 
 unpublished <- metadata %>% 
   filter(published == FALSE)
@@ -36,7 +24,7 @@ countries_names <- tbl(sc, "prd_mega.indicator.country") %>%
   select(code = country_code,name = country_name) %>%
   collect()
 
-path_survey <- file.path(root_dir, "survey-metadata.xlsx")
+path_survey <- file.path(ROOT_DIR, "survey-metadata.xlsx")
 survey <- read_excel(path_survey)
 
 merged_df <- left_join(
@@ -53,7 +41,7 @@ merged_df <- merged_df %>%
 
 # --- retrieve valid gh links ---
 
-country_url <- paste0(BASE, "/", PATH, "?ref=", BRANCH)
+country_url <- paste0(GH_API_BASE, "/", GH_PATH, "?ref=", GH_BRANCH)
 
 resp <- GET(country_url)
 stop_for_status(resp)
@@ -68,7 +56,7 @@ countries <- items %>%
 valid_pairs <- list()
 
 for (c in countries) {
-  url <- paste0(BASE, "/", PATH, "/", c, "?ref=", BRANCH)
+  url <- paste0(GH_API_BASE, "/", GH_PATH, "/", c, "?ref=", GH_BRANCH)
   r <- GET(url)
   if (http_error(r)) next
   entries <- content(r, as = "parsed")
@@ -85,13 +73,11 @@ valid_pairs_df <- bind_rows(lapply(valid_pairs, function(x) {
 }))
 
 
-base_url <- paste0("https://github.com/", OWNER, "/", REPO,"/tree/main/", PATH)
-
-valid_pairs_df <- valid_pairs_df %>% 
+valid_pairs_df <- valid_pairs_df %>%
   mutate(
     gh_url = if_else(
       !is.na(survey_clean),
-      paste0(base_url, "/", country, "/", survey_clean),
+      paste0(GH_HTML_BASE, "/", country, "/", survey_clean),
       NA_character_
     )
   )
@@ -343,15 +329,13 @@ make_mdl_json <- function(row) {
 }
 
 
-# --- generate the json files --- []
-
-json_dir <- "/Volumes/prd_csc_mega/sgld48/vgld48/Workspace/json_to_publish/"
+# --- generate the json files ---
 
 for (i in 1:nrow(merged_df)) {
   tryCatch({
     row <- merged_df[i, ]
     json_obj <- make_mdl_json(row)
-    out_path <- file.path(json_dir, paste0("DDI_", row$filename, "_WB.json"))
+    out_path <- file.path(JSON_DIR, paste0("DDI_", row$filename, "_WB.json"))
     write_json(json_obj, out_path, pretty = TRUE, auto_unbox = TRUE)
     message("JSON created for ", row$filename)
   }, error = function(e) {
