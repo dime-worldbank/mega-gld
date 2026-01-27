@@ -21,31 +21,25 @@ CHUNK_SIZE = 5000
 
 metadata = (
     spark.read.table(metadata_table)
-    .filter(col("ingested") == False)
-    .select("dta_path")
+    .select("dta_path","table_name", "country", "year", "survey", "quarter", "M_version", "A_version", "ingested")
     .toPandas()
 )
 
-if metadata.empty:
+candidates = metadata[metadata["ingested"] == False]
+
+if candidates.empty:
     print("No files to ingest.")
     raise SystemExit
 
 
-print("Files to ingest:", len(metadata))
 
 
 # --- helper functions ---
-def make_table_name(path):
-    nm = os.path.basename(path).replace(".dta", "")
-    nm = "".join(c if c.isalnum() else "_" for c in nm)
-    while "__" in nm:
-        nm = nm.replace("__", "_")
-    return nm.lower()
 
-
-def update_metadata(dta_path, tbl_name, harm_type, household_level):
+def update_metadata(dta_path, tbl_name, harm_type, household_level, table_version):
     harm_sql = "NULL" if harm_type is None else f"'{harm_type}'"
     hh_sql = "NULL" if household_level is None else ("TRUE" if household_level else "FALSE")
+    tv_sql = "NULL" if table_version is None else str(int(table_version))
 
     spark.sql(f"""
         UPDATE {metadata_table}
@@ -53,7 +47,8 @@ def update_metadata(dta_path, tbl_name, harm_type, household_level):
             ingested = TRUE,
             harmonization = {harm_sql},
             household_level = {hh_sql},
-            table_name = '{tbl_name}'
+            table_name = '{tbl_name}',
+            table_version = {tv_sql}
         WHERE dta_path = '{dta_path}'
     """)
 
@@ -89,7 +84,6 @@ def apply_column_comments(full_table_name, var_labels):
 
         except Exception as e:
             print(f"Skipping comment for {full_table_name}.{col_name}: {e}")
-
 
 def compute_stacking(pdf):
     out = pdf.copy()
@@ -140,115 +134,115 @@ def compute_stacking(pdf):
         out.loc[is_panel, "stacking"] = 0
 
     return out
-    
+
+def get_table_version(full_table_name):
+    hist = spark.sql(f"DESCRIBE HISTORY {full_table_name}")
+    return int(hist.select("version").orderBy(col("version").desc()).first()["version"])
+
+def table_exists(full_table_name):
+    return spark.catalog.tableExists(full_table_name)
+
+
+# --- define ingestion order ---
+
+key_cols = ["country", "year", "survey", "quarter"]
+
+to_ingest = candidates.sort_values(
+    key_cols + ["M_version", "A_version"],
+    ascending=[True, True, True, True, True, True]
+)
+
+print("Files to ingest:", len(to_ingest))
+
 
 # --- ingest ----
 
-for dta_path in metadata["dta_path"]:
+for _, row in to_ingest.iterrows():
+
+    dta_path = row["dta_path"]
+    tbl_name = str(row["table_name"]).strip()
+
+    if not tbl_name or tbl_name.lower() == "nan":
+        print(f"SKIPPING: missing table_name for dta_path={dta_path}")
+        continue
+    
+    full_write_table = f"{target_schema}.{tbl_name}"    
     print("--- Processing:", dta_path)
 
     try:
-
-        tbl_name = make_table_name(dta_path)
-        full_table_name = f"{target_schema}.{tbl_name}"
-
-        tbl_exists = (
-            spark.catalog.listTables(target_schema)
-        )
-        exists = any(t.name == tbl_name for t in tbl_exists)
-
+        exists = table_exists(full_write_table)
         if exists:
-            print("Table exists. Updating missing metadata")
-
-            sdf = spark.table(full_table_name)
-
-            cols = sdf.columns
-
-            harm_type = None
-            if "harmonization" in cols: harm_type = sdf.select("harmonization").limit(1).collect()[0][0]
-
-            household_level = ("hhid" in cols and sdf.select("hhid").filter(col("hhid").isNotNull()).limit(1).count() > 0)
-
-            update_metadata(dta_path, tbl_name, harm_type, household_level)
-
-            continue
-
+            print("Table exists → overwriting")
+        else:
+            print("Table does not exist → creating")
+        
         size_mb = os.path.getsize(dta_path) / (1024 * 1024)
+        
         if size_mb <= CHUNK_THRESHOLD_MB:
 
             pdf = pd.read_stata(dta_path, convert_categoricals=False)
 
             cols = pdf.columns
 
-            harm_type = (
-                pdf["harmonization"].iloc[0]
-                if "harmonization" in cols else None
-            )
-
+            harm_type = (pdf["harmonization"].iloc[0] if "harmonization" in cols else None)
             household_level = ("hhid" in cols and pdf["hhid"].notna().any())
 
             sdf = spark.createDataFrame(pdf)
 
-            print("Writing:", full_table_name)
-            sdf.write.mode("overwrite").format("delta").saveAsTable(full_table_name)
+            print("Writing:", full_write_table)
+            sdf.write.mode("overwrite").format("delta").option("overwriteSchema", "true").saveAsTable(full_write_table)
 
             var_labels = get_stata_var_labels(dta_path)
             #print("labels:", list(var_labels.items())[:10])
-            apply_column_comments(full_table_name, var_labels)
-            update_metadata(dta_path, tbl_name, harm_type, household_level)
+            apply_column_comments(full_write_table, var_labels)
+            table_version = get_table_version(full_write_table)
+            update_metadata(dta_path, tbl_name, harm_type, household_level, table_version)
+
+            del pdf, sdf
+            gc.collect()
             continue
 
-        print("Chunking:", full_table_name)
+        print("Chunking:", full_write_table)
 
         reader = pd.read_stata(dta_path, chunksize=CHUNK_SIZE, iterator=True, convert_categoricals=False)
 
         first_chunk = next(reader)
+        print("First chunk size:",first_chunk.memory_usage(deep=True).sum() / 1_048_576,"MB")
+
+        cols = first_chunk.columns
+
+        harm_type = (first_chunk["harmonization"].iloc[0] if "harmonization" in cols else None)
+        household_level = ("hhid" in cols and first_chunk["hhid"].notna().any())
 
         var_labels = get_stata_var_labels(dta_path)
-        print("labels:", list(var_labels.items())[:10])
 
-        print("First chunk size:",
-            first_chunk.memory_usage(deep=True).sum() / 1_048_576,
-            "MB")
+        #print("labels:", list(var_labels.items())[:10])
 
         spark_df = spark.createDataFrame(first_chunk)
         spark_schema = spark_df.schema
 
-        cols = first_chunk.columns
+        print("Writing first chunk →", full_write_table)
+        spark_df.write.mode("overwrite").format("delta").option("overwriteSchema", "true").saveAsTable(full_write_table)
 
-        harm_type = (
-            first_chunk["harmonization"].iloc[0]
-            if "harmonization" in cols else None
-        )
-
-        household_level = ("hhid" in cols and first_chunk["hhid"].notna().any())
-
-        print("Writing first chunk →", full_table_name)
-        spark_df.write.mode("overwrite").format("delta") \
-            .option("overwriteSchema", "true") \
-            .saveAsTable(full_table_name)
-
-        apply_column_comments(full_table_name, var_labels)
+        apply_column_comments(full_write_table, var_labels)
 
         del first_chunk
         del spark_df
         gc.collect()
 
         for i, chunk in enumerate(reader, start=2):
-            print(f"Chunk {i} size:",
-                chunk.memory_usage(deep=True).sum() / 1_048_576,
-                "MB")
+            print(f"Chunk {i} size:", chunk.memory_usage(deep=True).sum() / 1_048_576, "MB")
 
             spark_df = spark.createDataFrame(chunk, schema=spark_schema)
-            spark_df.write.mode("append").format("delta").saveAsTable(full_table_name)
+            spark_df.write.mode("append").format("delta").saveAsTable(full_write_table)
 
             del chunk
             del spark_df
             gc.collect()
 
-
         # --- update metadata ---
-        update_metadata(dta_path, tbl_name, harm_type, household_level)
+        table_version = get_table_version(full_write_table)
+        update_metadata(dta_path, tbl_name, harm_type, household_level, table_version)
     
     except Exception as e:
         print(f"ERROR ingesting {dta_path}: {e}")
