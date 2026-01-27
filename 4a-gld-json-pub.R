@@ -327,7 +327,7 @@ results <- lapply(json_files, function(jfile){
     sub("^DDI_", "", .) %>%
     sub("_WB$", "", .)
 
-  # lookup table_name in metadata
+  # lookup file name in metadata
   row <- merged_df %>% filter(filename == fname_base)
 
   if (nrow(row) == 0) {

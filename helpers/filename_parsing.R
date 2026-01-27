@@ -21,6 +21,16 @@ parse_metadata_from_filename <- function(path) {
   )
 }
 
+make_table_name <- function(path) {
+  nm <- basename(path)
+  nm <- sub("\\.dta$", "", nm, ignore.case = TRUE)
+  nm <- sub("(?i)_V[0-9]+_M_V[0-9]+_A.*$", "", nm, perl = TRUE)
+  nm <- gsub("[^[:alnum:]]", "_", nm)
+  nm <- gsub("_+", "_", nm)
+
+  tolower(nm)
+}
+
 filter_latest_versions <- function(parsed) {
   parsed %>%
     group_by(country, year, survey) %>%

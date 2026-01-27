@@ -2,6 +2,34 @@ library(testthat)
 
 source(file.path(dirname(dirname(getwd())), "helpers", "filename_parsing.R"))
 
+# --- Tests for list_dta_files ---
+
+test_that("list_dta_files finds .dta files across multiple paths and ignores other files", {
+  tmp <- tempdir()
+  dir1 <- file.path(tmp, "test_dir1")
+  dir2 <- file.path(tmp, "test_dir2")
+  dir3 <- file.path(tmp, "test_empty")
+  dir.create(dir1, showWarnings = FALSE)
+  dir.create(dir2, showWarnings = FALSE)
+  dir.create(dir3, showWarnings = FALSE)
+
+  file.create(file.path(dir1, "survey1.dta"))
+  file.create(file.path(dir1, "survey2.dta"))
+  file.create(file.path(dir1, "readme.txt"))
+  file.create(file.path(dir2, "survey3.dta"))
+  file.create(file.path(dir2, "data.csv"))
+
+  result <- list_dta_files(c(dir1, dir2, dir3))
+
+  expect_equal(length(result), 3)
+  expect_true(all(grepl("\\.dta$", result)))
+  expect_true(any(grepl("survey1\\.dta$", result)))
+  expect_true(any(grepl("survey2\\.dta$", result)))
+  expect_true(any(grepl("survey3\\.dta$", result)))
+
+  unlink(c(dir1, dir2, dir3), recursive = TRUE)
+})
+
 # --- Tests for parse_metadata_from_filename ---
 
 test_that("parse_metadata_from_filename extracts country code", {
@@ -66,6 +94,43 @@ test_that("parse_metadata_from_filename extracts filename correctly", {
   expect_equal(result$filename, "CAN_2021_LFS_v01_M_v02_A")
 })
 
+# --- Tests for make_table_name ---
+
+test_that("make_table_name removes case-insensitive .dta extension and converts to lowercase", {
+  expect_equal(make_table_name("Survey_Data.DTA"), "survey_data")
+  expect_equal(make_table_name("survey_data.Dta"), "survey_data")
+})
+
+test_that("make_table_name removes version suffix pattern, regardless of case", {
+  result <- make_table_name("USA_2020_LFS_V01_M_V02_A_GLD.dta")
+  expect_equal(result, "usa_2020_lfs")
+})
+
+test_that("make_table_name handles case-insensitive version pattern", {
+  result <- make_table_name("USA_2020_LFS_v01_m_v02_a_GLD.dta")
+  expect_equal(result, "usa_2020_lfs")
+})
+
+test_that("make_table_name replaces special characters with underscores", {
+  result <- make_table_name("USA-2020.LFS.dta")
+  expect_equal(result, "usa_2020_lfs")
+})
+
+test_that("make_table_name collapses multiple underscores", {
+  result <- make_table_name("USA__2020___LFS.dta")
+  expect_equal(result, "usa_2020_lfs")
+})
+
+test_that("make_table_name extracts basename from full path", {
+  result <- make_table_name("/root/data/harmonized/USA_2020_LFS.dta")
+  expect_equal(result, "usa_2020_lfs")
+})
+
+test_that("make_table_name handles quarter notation", {
+  result <- make_table_name("IND_2021-Q3_PLFS_V01_M_V01_A_GLD.dta")
+  expect_equal(result, "ind_2021_q3_plfs")
+})
+
 # --- Tests for filter_latest_versions ---
 
 test_that("filter_latest_versions selects correct latest version for each country/year/survey", {
@@ -118,32 +183,4 @@ test_that("filter_latest_versions selects correct latest version for each countr
   bra_pnad <- result %>% filter(country == "BRA")
   expect_equal(nrow(bra_pnad), 1)
   expect_equal(bra_pnad$dta_path, "/bra_pnad")
-})
-
-# --- Tests for list_dta_files ---
-
-test_that("list_dta_files finds .dta files across multiple paths and ignores other files", {
-  tmp <- tempdir()
-  dir1 <- file.path(tmp, "test_dir1")
-  dir2 <- file.path(tmp, "test_dir2")
-  dir3 <- file.path(tmp, "test_empty")
-  dir.create(dir1, showWarnings = FALSE)
-  dir.create(dir2, showWarnings = FALSE)
-  dir.create(dir3, showWarnings = FALSE)
-
-  file.create(file.path(dir1, "survey1.dta"))
-  file.create(file.path(dir1, "survey2.dta"))
-  file.create(file.path(dir1, "readme.txt"))
-  file.create(file.path(dir2, "survey3.dta"))
-  file.create(file.path(dir2, "data.csv"))
-
-  result <- list_dta_files(c(dir1, dir2, dir3))
-
-  expect_equal(length(result), 3)
-  expect_true(all(grepl("\\.dta$", result)))
-  expect_true(any(grepl("survey1\\.dta$", result)))
-  expect_true(any(grepl("survey2\\.dta$", result)))
-  expect_true(any(grepl("survey3\\.dta$", result)))
-
-  unlink(c(dir1, dir2, dir3), recursive = TRUE)
 })
