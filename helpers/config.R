@@ -17,3 +17,10 @@ GH_HTML_BASE <- paste0("https://github.com/", GH_OWNER, "/", GH_REPO, "/tree/", 
 
 # API
 METADATA_API_BASE <- "https://metadataeditor.worldbank.org/index.php/api/"
+
+# Environment detection
+is_databricks <- function() {
+  nzchar(Sys.getenv("DATABRICKS_RUNTIME_VERSION")) ||
+    nzchar(Sys.getenv("DB_HOME")) ||
+    nzchar(Sys.getenv("DATABRICKS_CLUSTER_ID"))
+}

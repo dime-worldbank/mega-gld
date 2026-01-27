@@ -4,12 +4,6 @@ library(dplyr)
 source("helpers/config.R")
 source("helpers/do_file_parsing.R")
 
-is_databricks <- function() {
-  nzchar(Sys.getenv("DATABRICKS_RUNTIME_VERSION")) ||
-    nzchar(Sys.getenv("DB_HOME")) ||
-    nzchar(Sys.getenv("DATABRICKS_CLUSTER_ID"))
-}
-
 compute_metadata_updates <- function(metadata) {
   unpublished <- metadata %>%
     filter(

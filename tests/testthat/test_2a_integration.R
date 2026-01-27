@@ -3,11 +3,12 @@ library(dplyr)
 library(purrr)
 library(readr)
 library(withr)
+
 repo_root <- normalizePath(file.path("..", ".."), mustWork = TRUE)
+withr::local_dir(repo_root)
+source(file.path(repo_root, "2a-gld-metadata-parse.R"))
 
 test_that("metadata parsing pipeline updates do_path and version_label for unpublished rows", {
-  withr::local_dir(repo_root)
-  source(file.path(repo_root, "2a-gld-metadata-parse.R"))
 
   fixture_path <- normalizePath(
     file.path(repo_root, "tests", "fixtures", "sample_metadata_2a_input.csv"),
