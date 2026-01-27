@@ -32,6 +32,16 @@ parse_metadata_from_filename <- function(path) {
   )
 }
 
+make_table_name <- function(path) {
+  nm <- basename(path)
+  nm <- sub("\\.dta$", "", nm, ignore.case = TRUE)
+  nm <- sub("(?i)_V[0-9]+_M_V[0-9]+_A.*$", "", nm, perl = TRUE)
+  nm <- gsub("[^[:alnum:]]", "_", nm)
+  nm <- gsub("_+", "_", nm)
+
+  tolower(nm)
+}
+
 
 # --- find harmonized data folders and dta files --- 
 
@@ -63,41 +73,6 @@ latest_tables <- latest_versions$dta_path
 print("Latest tables filtered")
 
 
-# --- remove all older-version tables  ---
-
-metadata <- tbl(sc, metadata_table) %>% collect()
-
-old_versions <- setdiff(metadata$dta_path, latest_tables)
-
-
-if (length(old_versions) > 0) {
-
-  old_meta <- metadata %>% filter(dta_path %in% old_versions)
-
-  for (i in seq_len(nrow(old_meta))) {
-
-    tbl_name <- old_meta$table_name[i]
-
-    if (!is.na(tbl_name) && nzchar(tbl_name)) {
-
-      full_table <- paste0(target_schema, ".", tbl_name)
-
-      message("Deleting old version Delta table: ", full_table)
-
-      DBI::dbExecute(sc, paste0("DROP TABLE IF EXISTS ", full_table))
-
-    }
-
-    DBI::dbExecute(
-      sc,
-      paste0("
-        DELETE FROM ", metadata_table, "
-        WHERE dta_path = '", old_meta$dta_path[i], "'
-      ")
-    )
-
-  }
-}
 
 # --- check already ingested and add new files to metadata table ---
 
@@ -117,7 +92,7 @@ if (length(new_files) > 0) {
 
   new_meta <- tibble(
     filename = dataset_names,
-    table_name = NA_character_,
+    table_name = make_table_name(new_files),
     dta_path = new_files,
     ingested = FALSE,
     published = FALSE,
