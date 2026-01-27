@@ -5,14 +5,11 @@ library(sparklyr)
 library(stringr)
 library(fs)
 
-root_dir <- "/Volumes/prd_csc_mega/sgld48/vgld48/Documents"
+source("helpers/config.R")
 
 sc <- spark_connect(method = "databricks")
 
-target_schema  <- "prd_csc_mega.sgld48"
-metadata_table <- paste0(target_schema, "._ingestion_metadata")
-
-metadata <- tbl(sc, metadata_table) %>% collect()
+metadata <- tbl(sc, METADATA_TABLE) %>% collect()
 
 unpublished <- metadata %>% 
   filter(published == FALSE,
@@ -287,7 +284,7 @@ copy_to(sc, metadata, "tmp_new_meta", overwrite = TRUE)
 DBI::dbExecute(
   sc,
   paste0(
-    "UPDATE ", metadata_table, " AS m ",
+    "UPDATE ", METADATA_TABLE, " AS m ",
     "SET
       version_label = (
         SELECT ANY_VALUE(p.version_label)

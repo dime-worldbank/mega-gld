@@ -7,16 +7,14 @@ library(fs)
 library(zip)
 library(readxl)
 
+source("helpers/config.R")
+
 sc <- spark_connect(method = "databricks")
 
-metadata_table <- "prd_csc_mega.sgld48._ingestion_metadata"
-json_dir <- "/Volumes/prd_csc_mega/sgld48/vgld48/Workspace/json_to_publish"
-
-metadata <- tbl(sc, metadata_table) %>%
+metadata <- tbl(sc, METADATA_TABLE) %>%
   collect()
 
-root_dir <- "/Volumes/prd_csc_mega/sgld48/vgld48/Documents"
-path_survey <- file.path(root_dir, "survey-metadata.xlsx")
+path_survey <- file.path(ROOT_DIR, "survey-metadata.xlsx")
 survey <- read_excel(path_survey)
 
 merged_df <- left_join(
@@ -25,11 +23,8 @@ merged_df <- left_join(
   by = c("survey", "country")
 )
 
-
 # api key needs to be updated before productionizing
 api_key <- dbutils.secrets.get("GLDKEYVAULT","NADA_API_KEY")
-
-BASE <- "https://metadataeditor.worldbank.org/index.php/api/"
 
 
  
@@ -37,7 +32,7 @@ BASE <- "https://metadataeditor.worldbank.org/index.php/api/"
 
 ## This function creates a project in the Metadata Editor by uploading the json file
 create_dataset <- function(json_data, api_key){
-  url <- paste0(BASE, "editor/create/survey")
+  url <- paste0(METADATA_API_BASE, "editor/create/survey")
   resp <- httr::POST(
     url,
     httr::add_headers(`X-API-KEY` = api_key),
@@ -57,7 +52,7 @@ create_dataset <- function(json_data, api_key){
 
 ## This function uploads the microdata file to the project created using create_dataset, and generates statistics for microdata variables
 upload_microdata_file <- function(project_id, file_path, api_key){
-  url <- paste0(BASE, "jobs/import_microdata/", project_id)
+  url <- paste0(METADATA_API_BASE, "jobs/import_microdata/", project_id)
   resp <- httr::POST(
     url,
     httr::add_headers(`X-API-Key` = api_key),
@@ -79,7 +74,7 @@ upload_microdata_file <- function(project_id, file_path, api_key){
 
 ## This function creates External Resources in the Metadata Editor project
 create_resource <- function(project_id, resource_body, file_path, api_key) {
-  url <- paste0(BASE, "resources/", project_id)
+  url <- paste0(METADATA_API_BASE, "resources/", project_id)
   body <- c(
     resource_body,
     list(file = httr::upload_file(file_path))
@@ -253,7 +248,7 @@ handle_additional_data_resources <- function(project_id, idno, dta_path, api_key
 publish_project <- function(project_id, api_key, catalog_connection_id = 43, repositoryid = "824", access_policy = "licensed",overwrite = "yes",published = 0) {
 
   call_get <- function(path) {
-    url <- paste0(BASE, path, "/", project_id)
+    url <- paste0(METADATA_API_BASE, path, "/", project_id)
     resp <- httr::GET(
       url,
       httr::add_headers(`X-API-KEY` = api_key)
@@ -264,7 +259,7 @@ publish_project <- function(project_id, api_key, catalog_connection_id = 43, rep
   }
 
   call_post <- function(body) {
-    url <- paste0(BASE, "publish/", project_id, "/", catalog_connection_id)
+    url <- paste0(METADATA_API_BASE, "publish/", project_id, "/", catalog_connection_id)
     resp <- httr::POST(
       url,
       httr::add_headers(`X-API-KEY` = api_key),
@@ -309,7 +304,7 @@ update_metadata <- function(fname_base) {
   sparklyr::spark_sql(
     sc,
     paste0(
-      "UPDATE ", metadata_table, "
+      "UPDATE ", METADATA_TABLE, "
        SET published = TRUE
        WHERE fname_base = '", fname_base, "'"
     )
@@ -320,7 +315,7 @@ update_metadata <- function(fname_base) {
 
 # --- publication pipe ---
 
-json_files <- list.files(json_dir, pattern="\\.json$", full.names=TRUE)
+json_files <- list.files(JSON_DIR, pattern="\\.json$", full.names=TRUE)
 
 results <- lapply(json_files, function(jfile){
   message("-----------------------------")
