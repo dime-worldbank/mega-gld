@@ -1,6 +1,12 @@
+# Databricks notebook source
 library(stringr)
 
-source("helpers/json_text.R")
+
+# COMMAND ----------
+
+# MAGIC %run "./json_text"
+
+# COMMAND ----------
 
 
 make_mdl_json <- function(row, countries_names) {

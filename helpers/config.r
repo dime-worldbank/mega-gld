@@ -1,3 +1,4 @@
+# Databricks notebook source
 # Paths
 ROOT_DIR <- "/Volumes/prd_csc_mega/sgld48/vgld48/Documents"
 JSON_DIR <- "/Volumes/prd_csc_mega/sgld48/vgld48/Workspace/json_to_publish"

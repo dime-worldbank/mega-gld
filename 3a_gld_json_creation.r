@@ -1,9 +1,21 @@
+# Databricks notebook source
 library(dplyr)
 library(sparklyr)
 
-source("helpers/config.R")
-source("helpers/gh_links_3a.R")
-source("helpers/json_pipeline_3a.R")
+
+# COMMAND ----------
+
+# MAGIC %run "./helpers/config"
+
+# COMMAND ----------
+
+# MAGIC %run "./helpers/gh_links"
+
+# COMMAND ----------
+
+# MAGIC %run "./helpers/json_pipeline"
+
+# COMMAND ----------
 
 is_databricks <- function() {
   nzchar(Sys.getenv("DATABRICKS_RUNTIME_VERSION")) ||

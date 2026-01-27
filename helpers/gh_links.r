@@ -1,8 +1,11 @@
+# Databricks notebook source
 library(purrr)
 library(dplyr)
 library(httr)
 library(stringr)
 library(tibble)
+
+# COMMAND ----------
 
 gh_list_dirs <- function(url) {
   resp <- GET(url)

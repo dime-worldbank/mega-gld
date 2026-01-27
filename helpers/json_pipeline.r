@@ -1,10 +1,17 @@
+# Databricks notebook source
 library(dplyr)
 library(readxl)
 library(stringr)
 library(purrr)
 library(jsonlite)
 
-source("helpers/json_builder.R")
+# COMMAND ----------
+
+# MAGIC %run "./json_builder"
+
+# COMMAND ----------
+
+
 
 fetch_countries_names <- function(sc, country_table = "prd_mega.indicator.country") {
   tbl(sc, country_table) %>%
