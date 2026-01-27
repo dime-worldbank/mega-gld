@@ -1,3 +1,5 @@
+# Databricks notebook source
+
 library(dplyr)
 
 source("helpers/config.R")
