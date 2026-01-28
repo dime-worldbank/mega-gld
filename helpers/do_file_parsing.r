@@ -29,7 +29,7 @@ find_do_files <- function(dta_path, filename) {
   score <- score + 2 * as.integer(grepl(fn, base, fixed = TRUE))
 
   # 2) all.do
-  score <- score + 3 * as.integer(grepl("^all\\.do$", base))
+  score <- score + 3L * as.integer(grepl("(^|_)all\\.do$", base))
 
   # 3) exact filename.do
   score <- score + 4 * as.integer(base == paste0(fn, ".do"))

@@ -1,6 +1,17 @@
+# Databricks notebook source
 library(testthat)
 
-source(file.path(dirname(dirname(getwd())), "helpers", "do_file_parsing.r"))
+# COMMAND ----------
+
+# MAGIC %run "../../helpers/do_file_parsing"
+
+# COMMAND ----------
+
+if (!exists("find_do_files")) {
+  source("helpers/do_files_parsing.r")
+}
+
+# COMMAND ----------
 
 # --- Tests for find_do_files ---
 # Structure: base/dataset_folder/version_folder/Data/Harmonized
@@ -18,7 +29,7 @@ test_that("find_do_files returns single .do file when only one exists", {
   dir.create(harmonized_path, recursive = TRUE, showWarnings = FALSE)
   file.create(file.path(programs_dir, "script.do"))
 
-  result <- find_do_files(harmonized_path, "test_dataset")
+  result <- find_do_files(harmonized_path, "script")
 
   expect_true(grepl("script\\.do$", result))
 
@@ -76,7 +87,7 @@ test_that("find_do_files prefers file named *ALL.do when two .do files exist and
 
   result <- find_do_files(harmonized_path, "USA_2020_LFS")
 
-  expect_true(grepl("prefix_ALL\\.do$", result))
+  expect_equal(tolower(basename(result)), "prefix_all.do")
 
   unlink(base_dir, recursive = TRUE)
 })
