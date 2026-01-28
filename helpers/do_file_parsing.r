@@ -5,44 +5,44 @@ library(readr)
 
 # Q: looks like find_do_files is always called with filename, simplify implementation?
 # select * from `prd_csc_mega`.`sgld48`.`_ingestion_metadata` where filename is null or filename = ''
-find_do_files <- function(harmonized_path, filename) {
-  version_folder <- path_dir(path_dir(path_dir(harmonized_path)))
-  programs_dir  <- path(version_folder, "Programs")
 
-  if (!dir_exists(programs_dir)) {
+find_do_files <- function(dta_path, filename) {
+  version_folder <- fs::path_dir(fs::path_dir(fs::path_dir(dta_path)))
+  programs_dir  <- fs::path(version_folder, "Programs")
+
+  if (!fs::dir_exists(programs_dir)) {
     return("")
   }
 
-  do_files <- as.character(dir_ls(programs_dir, glob = "*.do"))
-  n <- length(do_files)
-
-  if (n == 1) {
-    return(do_files)
-  }
-
-  if (n == 2) {
-    contains_name <- do_files[grepl(filename, basename(do_files), ignore.case = TRUE)]
-    if (length(contains_name) == 1) {
-      return(contains_name)
-    }
-
-    all_do <- do_files[grepl("all\\.do$", basename(do_files), ignore.case = TRUE)]
-    if (length(all_do) == 1) {
-      return(all_do)
-    }
-
-    no_suffix <- do_files[basename(do_files) == paste0(filename, ".do")]
-    if (length(no_suffix) == 1) {
-      return(no_suffix)
-    }
-
-    warning("No .do file or multiple .do files detected for ", filename,"; none selected.")
+  do_files <- fs::dir_ls(programs_dir, glob = "*.do", type = "file")
+  if (length(do_files) == 0) {
     return("")
   }
 
-  warning("No .do file or multiple .do files detected for ", filename,"; none selected.")
-  return("")
+  base <- tolower(fs::path_file(do_files))
+  fn   <- tolower(filename)
+
+  # Scoring system to assess which do file is best
+  score <- integer(length(do_files))
+
+  # 1) basename contains filename 
+  score <- score + 2 * as.integer(grepl(fn, base, fixed = TRUE))
+
+  # 2) all.do
+  score <- score + 3 * as.integer(grepl("^all\\.do$", base))
+
+  # 3) exact filename.do
+  score <- score + 4 * as.integer(base == paste0(fn, ".do"))
+
+  best <- which(score == max(score))
+  if (max(score) == 0L || length(best) != 1L) {
+    warning("No .do file or multiple .do files detected for ", filename, "; none selected.")
+    return("")
+  }
+
+  do_files[best]
 }
+
 
 extract_version_control <- function(text) {
   lower <- tolower(text)
