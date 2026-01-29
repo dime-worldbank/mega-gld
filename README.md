@@ -1,4 +1,7 @@
 # mega-gld
+
+[![Run Tests](https://github.com/dime-worldbank/mega-gld/actions/workflows/test.yml/badge.svg)](https://github.com/dime-worldbank/mega-gld/actions/workflows/test.yml)
+
 #### Automation pipeline to onboard the Global Labor Database to the Corporate Data Lake and publish its datasets to the Microdata Library
 #### 
 The pipeline is organized in five steps and split in two branches after the ingestion step.
