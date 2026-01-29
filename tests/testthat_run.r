@@ -15,7 +15,7 @@ if (!exists("is_databricks")) {
 
 # COMMAND ----------
 
-# MAGIC %run ./testthat/test_2a_integration_alt
+# MAGIC %run ./testthat/test_2_integration_alt
 
 # COMMAND ----------
 
