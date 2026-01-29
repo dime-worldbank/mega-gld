@@ -1,7 +1,23 @@
-library(testthat)
+# Databricks notebook source
+suppressPackageStartupMessages({
+  library(testthat)
+})
 
-repo_root <- normalizePath(file.path("..", ".."), mustWork = TRUE)
-source(file.path(repo_root, "helpers", "filename_parsing.r"))
+# COMMAND ----------
+
+# MAGIC %run "../../helpers/delta_identification"
+
+# COMMAND ----------
+
+if (!exists("list_dta_files")) {
+  repo_root <- normalizePath(file.path("..", ".."), mustWork = TRUE)
+  withr::local_dir(repo_root)
+  source(file.path(repo_root, "helpers", "delta_identification.r"))
+}
+
+# COMMAND ----------
+
+
 
 # --- Tests for list_dta_files ---
 

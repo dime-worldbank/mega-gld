@@ -1,7 +1,9 @@
 # Databricks notebook source
-library(testthat)
-library(tibble)
-library(withr)
+suppressPackageStartupMessages({
+  library(testthat)
+  library(tibble)
+  library(withr)
+})
 
 # COMMAND ----------
 

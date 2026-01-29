@@ -7,7 +7,7 @@ library(dplyr)
 
 # COMMAND ----------
 
-# MAGIC %run "./helpers/filename_parsing"
+# MAGIC %run "./helpers/delta_identification"
 
 # COMMAND ----------
 
@@ -16,34 +16,6 @@ if (!exists("is_databricks")) {
 }
 if (!exists("list_dta_files")) {
   source("helpers/filename_parsing.r")
-}
-
-identify_latest_versions <- function(root_dir) {
-  country_dirs <- list.dirs(root_dir, recursive = FALSE)
-  dataset_dirs <- unlist(lapply(country_dirs, list.dirs, recursive = FALSE))
-  version_dirs <- unlist(lapply(dataset_dirs, function(d) {
-    list.dirs(d, recursive = FALSE)
-  }))
-
-  harmonized_paths <- file.path(version_dirs, "Data", "Harmonized")
-  harmonized_paths <- harmonized_paths[dir.exists(harmonized_paths)]
-
-  all_dta_files <- list_dta_files(harmonized_paths)
-  print(paste("Dta files collected:", length(all_dta_files)))
-
-  if (length(all_dta_files) == 0) {
-    return(tibble())
-  }
-
-  parsed <- bind_rows(lapply(all_dta_files, parse_metadata_from_filename))
-  latest_versions <- filter_latest_versions(parsed)
-  print(paste(
-    "Latest tables filtered:",
-    nrow(latest_versions), "datasets (by country-year-survey),",
-    "covering", n_distinct(latest_versions$country), "countries."
-  ))
-
-  latest_versions
 }
 
 if (is_databricks()) {

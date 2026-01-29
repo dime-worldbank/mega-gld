@@ -46,7 +46,12 @@ make_mdl_json <- function(row, countries_names) {
   # --- other repeatables ---
   A_version_padded <- sprintf("%02d", as.integer(row$A_version))
   idno_val <- paste0("DDI_", row$filename, "_WB")
-  long_title <- paste0(row$survey_extended, q_piece, " ", row$year, ", ", GLD_NAME_LONG)
+  survey_extended_val <- safe(row$survey_extended)
+    if (survey_extended_val == "") {
+      survey_extended_val <- row$survey_clean
+    }
+  long_title <- paste0(survey_extended_val, q_piece, " ", row$year, ", ", GLD_NAME_LONG)
+  
 
   # ---- GH link ----
   gh_link <- safe(row$gh_url)
@@ -158,7 +163,7 @@ make_mdl_json <- function(row, countries_names) {
       ),
 
       bib_citation = BIB_CITATION(
-        survey_extended = row$survey_extended,
+        survey_extended = survey_extended_val,
         year            = row$year,
         filename        = row$filename
       ),
@@ -212,7 +217,7 @@ make_mdl_json <- function(row, countries_names) {
             )
           ),
           cit_req = CITATION_REQUIREMENTS(
-            survey_extended = row$survey_extended,
+            survey_extended = survey_extended_val,
             year            = row$year,
             filename        = row$filename
           ),

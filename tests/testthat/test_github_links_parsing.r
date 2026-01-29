@@ -1,6 +1,8 @@
 # Databricks notebook source
-library(testthat)
-library(withr)
+suppressPackageStartupMessages({
+  library(testthat)
+  library(withr)
+})
 
 # COMMAND ----------
 
@@ -11,6 +13,7 @@ library(withr)
 
 if (!exists("gh_list_dirs")) {
   repo_root <- normalizePath(file.path("..", ".."), mustWork = TRUE)
+  withr::local_dir(repo_root)
   source(file.path(repo_root, "helpers", "gh_links_parsing.r"))
 }
 

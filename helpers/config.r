@@ -1,8 +1,4 @@
 # Databricks notebook source
-
-
-# COMMAND ----------
-
 # Environment detection
 is_databricks <- function() {
   nzchar(Sys.getenv("DATABRICKS_RUNTIME_VERSION")) ||
@@ -44,4 +40,4 @@ if (IN_DATABRICKS) {
 }
 
 #API Integration Tests Config
-RUN_API_INTEGRATION = False
+RUN_API_INTEGRATION <- FALSE

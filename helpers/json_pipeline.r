@@ -1,9 +1,11 @@
 # Databricks notebook source
-library(dplyr)
-library(readxl)
-library(stringr)
-library(purrr)
-library(jsonlite)
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(readxl)
+  library(stringr)
+  library(purrr)
+  library(jsonlite)
+})
 
 # COMMAND ----------
 
@@ -32,12 +34,14 @@ fetch_survey_metadata <- function(root_dir, filename = "survey-metadata.xlsx") {
 
 compute_json_inputs <- function(metadata, survey, valid_pairs_df) {
   metadata %>%
-    filter(published == FALSE) %>%
+    filter(
+      published == FALSE,
+      is.na(data_classification) | trimws(data_classification) == ""
+    ) %>%
     left_join(survey, by = c("survey", "country")) %>%
     mutate(survey_clean = str_extract(survey, "^[^-]+")) %>%
     left_join(valid_pairs_df, by = c("country", "survey_clean"))
 }
-
 
 
 write_json_files <- function(df, countries_names, json_dir) {

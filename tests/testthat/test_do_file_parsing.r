@@ -1,5 +1,7 @@
 # Databricks notebook source
-library(testthat)
+suppressPackageStartupMessages({
+  library(testthat)
+})
 
 # COMMAND ----------
 
@@ -9,7 +11,8 @@ library(testthat)
 
 if (!exists("find_do_files")) {
   repo_root <- normalizePath(file.path("..", ".."), mustWork = TRUE)
-  source(file.path(repo_root, "helpers", "do_file_parsing.r"))
+  withr::local_dir(repo_root)
+  source(file.path(repo_root,"helpers", "do_file_parsing.r"))
 }
 
 # COMMAND ----------

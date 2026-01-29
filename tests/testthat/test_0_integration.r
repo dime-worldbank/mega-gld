@@ -1,10 +1,28 @@
-library(testthat)
-library(dplyr)
-library(withr)
+# Databricks notebook source
+suppressPackageStartupMessages({
+  library(testthat)
+  library(dplyr)
+  library(withr)
+})
 
-repo_root <- normalizePath(file.path("..", ".."), mustWork = TRUE)
-withr::local_dir(repo_root)
-source(file.path(repo_root, "0_delta_identification.r"))
+# COMMAND ----------
+
+# MAGIC %run "../../helpers/config"
+
+# COMMAND ----------
+
+# MAGIC %run "../../helpers/filename_parsing"
+
+# COMMAND ----------
+
+if (!exists("list_dta_files")) {
+  repo_root <- normalizePath(file.path("..", ".."), mustWork = TRUE)
+  withr::local_dir(repo_root)
+  source(file.path(repo_root, "helpers", "config.r"))
+  source(file.path(repo_root, "helpers", "filename_parsing.r"))
+}
+
+# COMMAND ----------
 
 test_that("delta identification pipeline finds dta files and filters to latest versions", {
   tmp <- tempdir()

@@ -1,8 +1,10 @@
 # Databricks notebook source
-library(testthat)
-library(haven)
-library(zip)
-library(withr)
+suppressPackageStartupMessages({
+  library(testthat)
+  library(haven)
+  library(zip)
+  library(withr)
+})
 
 # COMMAND ----------
 
@@ -15,13 +17,10 @@ library(withr)
 # COMMAND ----------
 
 if (!exists("is_databricks")) {
-  source("helpers/config.r")
-}
-
-# COMMAND ----------
-
-if (!exists("create_dataset")) {
-  source("helpers/publication_pipeline.r")
+  repo_root <- normalizePath(file.path("..", ".."), mustWork = TRUE)
+  withr::local_dir(repo_root)
+  source(file.path(repo_root, "helpers", "publication_pipeline.r"))
+  source(file.path(repo_root, "helpers", "config.r"))
 }
 
 # COMMAND ----------
