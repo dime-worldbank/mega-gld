@@ -1,6 +1,7 @@
 library(testthat)
 
-source(file.path(dirname(dirname(getwd())), "helpers", "filename_parsing.r"))
+repo_root <- normalizePath(file.path("..", ".."), mustWork = TRUE)
+source(file.path(repo_root, "helpers", "filename_parsing.r"))
 
 # --- Tests for list_dta_files ---
 

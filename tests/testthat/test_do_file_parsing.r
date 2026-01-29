@@ -8,7 +8,8 @@ library(testthat)
 # COMMAND ----------
 
 if (!exists("find_do_files")) {
-  source("helpers/do_files_parsing.r")
+  repo_root <- normalizePath(file.path("..", ".."), mustWork = TRUE)
+  source(file.path(repo_root, "helpers", "do_file_parsing.r"))
 }
 
 # COMMAND ----------

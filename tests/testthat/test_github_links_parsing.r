@@ -10,7 +10,8 @@ library(withr)
 # COMMAND ----------
 
 if (!exists("gh_list_dirs")) {
-  source("helpers/gh_links_parsing.r")
+  repo_root <- normalizePath(file.path("..", ".."), mustWork = TRUE)
+  source(file.path(repo_root, "helpers", "gh_links_parsing.r"))
 }
 
 # COMMAND ----------

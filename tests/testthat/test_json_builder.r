@@ -1,6 +1,7 @@
 # Databricks notebook source
 library(testthat)
 library(tibble)
+library(withr)
 
 # COMMAND ----------
 
@@ -9,6 +10,8 @@ library(tibble)
 # COMMAND ----------
 
 if (!exists("make_mdl_json")) {
+  repo_root <- normalizePath(file.path("..", ".."), mustWork = TRUE)
+  withr::local_dir(repo_root)
   source("helpers/json_builder.r")
 }
 
