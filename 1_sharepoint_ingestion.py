@@ -1,6 +1,3 @@
-
-%pip install pyreadstat
-
 import os
 import gc
 import pandas as pd
