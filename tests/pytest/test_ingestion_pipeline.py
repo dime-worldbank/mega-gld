@@ -1,6 +1,3 @@
-%pip install pytest
-%pip install pyreadstat
-
 import re
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call

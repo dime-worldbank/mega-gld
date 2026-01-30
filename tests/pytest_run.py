@@ -1,5 +1,6 @@
 # Databricks notebook source
 # MAGIC %pip install pytest
+# MAGIC %pip install pyreadstat
 
 # COMMAND ----------
 
