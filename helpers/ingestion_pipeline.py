@@ -1,7 +1,4 @@
 # Databricks notebook source
-
-# COMMAND ----------
-
 import pyreadstat
 from pyspark.sql.functions import col
 

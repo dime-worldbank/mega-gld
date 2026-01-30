@@ -1,8 +1,5 @@
 # Databricks notebook source
-
-# COMMAND ----------
-
-%pip install pyreadstat
+# MAGIC %pip install pyreadstat
 
 # COMMAND ----------
 
@@ -13,7 +10,7 @@ from pyspark.sql import SparkSession
 
 # COMMAND ----------
 
-%run "./helpers/ingestion_pipeline"
+# MAGIC %run "./helpers/ingestion_pipeline"
 
 # COMMAND ----------
 
@@ -22,8 +19,8 @@ def in_databricks() -> bool:
 
 if not in_databricks():
     print("Not running in Databricks. Skipping ingestion pipeline.")
-else:
 
+else:
     spark = SparkSession.builder.getOrCreate()
 
     target_schema = "prd_csc_mega.sgld48"
@@ -173,4 +170,4 @@ else:
         WHEN MATCHED THEN UPDATE SET t.stacking = s.stacking
         """)
 
-        print("Done: stacking updated.")
+        print("Done: stacking flag updated.")

@@ -11,7 +11,7 @@ suppressPackageStartupMessages({
 
 # COMMAND ----------
 
-# MAGIC %run "../../helpers/filename_parsing"
+# MAGIC %run "../../helpers/delta_identification"
 
 # COMMAND ----------
 
