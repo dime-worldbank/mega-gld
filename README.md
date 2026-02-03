@@ -1,4 +1,7 @@
 # mega-gld
+
+[![Run Tests](https://github.com/dime-worldbank/mega-gld/actions/workflows/test.yml/badge.svg)](https://github.com/dime-worldbank/mega-gld/actions/workflows/test.yml)
+
 #### Automation pipeline to onboard the Global Labor Database to the Corporate Data Lake and publish its datasets to the Microdata Library
 #### 
 The pipeline is organized in five steps and split in two branches after the ingestion step.
@@ -38,3 +41,19 @@ ___
 **Script 3b** [forthcoming. manages json creation of the stacked table]
 ___
 **Script 4b** [forthcoming. manages json publication of the stacked table]
+
+## Tests
+
+### Local
+Run the full test suite from the repo root:
+```bash
+Rscript tests/testthat_run.r
+```
+
+Run a single test file:
+```bash
+R -e 'testthat::test_file("tests/testthat/test_do_file_parsing.r")'
+```
+
+### Databricks
+Import the repository into a Databricks workspace, then run `tests/testthat_run` as a notebook. The notebook uses `%run` commands to execute each test file in sequence.
