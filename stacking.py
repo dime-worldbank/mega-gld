@@ -1,6 +1,6 @@
 # Databricks notebook source
-TABLE_QULIFIER =  "prd_csc_mega.sgld48."
-metadata_table = f"{TABLE_QULIFIER}_ingestion_metadata"
+TABLE_QULIFIER =  "prd_csc_mega.sgld48"
+metadata_table = f"{TABLE_QULIFIER}._ingestion_metadata"
 metadata = spark.table(metadata_table)
 OFFICIAL_CLASS = 'Official Use'
 
@@ -180,32 +180,73 @@ schema = StructType([
 
 # COMMAND ----------
 
+from pyspark.sql.functions import col, greatest, lit, when, coalesce
+
+# Treat null as -1. This means "Not yet in the harmonized table."
+stacked_all_val = coalesce(col("stacked_all_table_version"), lit(-1))
+stacked_ouo_val = coalesce(col("stacked_ouo_table_version"), lit(-1))
+
+# We want to process tables where the source version is NEWER (greater) than the highest version currently in our harmonized stacks.
+change_keys = metadata.filter(
+    col("table_version") > greatest(stacked_all_val, stacked_ouo_val)
+).select("table_name", col("country").alias("countrycode"), "year", "survey", "table_version", 
+         "stacked_all_table_version", "stacked_ouo_table_version").distinct()
+
+
+update_list = []
+for row in change_keys.collect():
+    country = row["countrycode"]
+    year = row["year"]
+    survey = row["survey"]
+    table_version = row["table_version"]
+    update_list.append((country, year, survey, table_version))
+
+    # If the stacked version was NULL, it's a brand new table
+    if row["stacked_all_table_version"] is None:
+        print(f"ACTION: Adding BRAND NEW data for {country} {year} {survey} of the latest version {table_version}")
+    else:
+        print(f"ACTION: UPDATING existing data for {country} {year} {survey} with the latest version {table_version} (Newer version detected)")
+
+
+# Delete the existing rows if these country/year/survey need updated
+HARMONIZED_CONFIDENTIAL = f"{TABLE_QULIFIER}.test_GLD_HARMONIZED_ALL"
+HARMONIZED_OFFICIAL = f"{TABLE_QULIFIER}.test_GLD_HARMONIZED_OUO"
+
+
+# Check if the table exists in the metastore
+if spark.catalog.tableExists(HARMONIZED_CONFIDENTIAL):
+    harmonized_all = spark.table(HARMONIZED_CONFIDENTIAL)
+else:
+    # Create an empty DF using your predefined schema object
+    harmonized_all = spark.createDataFrame([], schema)
+
+if spark.catalog.tableExists(HARMONIZED_OFFICIAL):
+    harmonized_ouo = spark.table(HARMONIZED_OFFICIAL)
+else:
+    # Create an empty DF using your predefined schema object
+    harmonized_ouo = spark.createDataFrame([], schema)
+
+harmonized_all_cleaned = harmonized_all \
+    .join(change_keys, on=["countrycode", "year", "survey"], how="left_anti")
+
+harmonized_ouo_cleaned = harmonized_ouo \
+    .join(change_keys, on=["countrycode", "year", "survey"], how="left_anti")
+
+# COMMAND ----------
+
 #TODO add this to the metadata table as a flag
 TO_REMOVE = ['MEX_2023_ENOE_Panel_V01_M_V01_A_GLD_ALL', 'IND_2022_PLFS_Urban_Panel_V01_M_V01_A_GLD_ALL']
 
 # COMMAND ----------
 
-# Delete the harmonized Delta table if it already exists
-HARMONIZED_CONFIDENTIAL = f"{TABLE_QULIFIER}GLD_HARMONIZED_CONFIDENTIAL"
-HARMONIZED_OFFICIAL = f"{TABLE_QULIFIER}GLD_HARMONIZED_OFFICIAL"
-
-if spark.catalog.tableExists(HARMONIZED_CONFIDENTIAL):
-    spark.sql(f"DROP TABLE {HARMONIZED_CONFIDENTIAL}")
-    print(f"Deleted existing table {HARMONIZED_CONFIDENTIAL}")
-
-if spark.catalog.tableExists(HARMONIZED_OFFICIAL):
-    spark.sql(f"DROP TABLE {HARMONIZED_OFFICIAL}")
-    print(f"Deleted existing table {HARMONIZED_OFFICIAL}")
-
-# COMMAND ----------
-
 from pyspark.sql.functions import col, lit
 import re
+all_dfs = []
+ouo_dfs = []
 
 subnational_pattern = r"^subnatid\d+(_prev)?$"
 gaul_pattern = r"^gaul_adm\d+_code$"
 
-# Get distinct table names from the ingestion metadata
 # Get distinct table names from the ingestion metadata where ingested is True
 table_metadata = (
     metadata.filter(col("ingested") == True)
@@ -218,7 +259,7 @@ table_metadata = (
 expected_cols = [f.name for f in schema.fields]
 
 for tbl, classification, country_val, year_val, survey_val in table_metadata:
-    src_df = spark.table(TABLE_QULIFIER + tbl)
+    src_df = spark.table(f"{TABLE_QULIFIER}.{tbl}")
     
     selected_exprs = []
     
@@ -248,18 +289,49 @@ for tbl, classification, country_val, year_val, survey_val in table_metadata:
 
     # Create the aligned DataFrame
     aligned_df = src_df.select(*selected_exprs)
-
-    # Union all tables together
-    aligned_df.write \
-            .mode("append") \
-            .option("mergeSchema", "true") \
-            .saveAsTable(HARMONIZED_CONFIDENTIAL)
+    all_dfs.append(aligned_df)
     if classification == OFFICIAL_CLASS:
-        aligned_df.write \
-                .mode("append") \
-                .option("mergeSchema", "true") \
-                .saveAsTable(HARMONIZED_OFFICIAL)
+        ouo_dfs.append(aligned_df)
+
+# Union all tables together
+# One single write operation
+if all_dfs:
+    # Use reduce to union the list into one DataFrame
+    from functools import reduce
+    final_df = reduce(lambda df1, df2: df1.unionByName(df2, allowMissingColumns=True), all_dfs)
+    final_df = harmonized_all_cleaned.unionByName(final_df, allowMissingColumns=True)
+    # This creates ONE new version
+    final_df.write.mode("overwrite").saveAsTable(HARMONIZED_CONFIDENTIAL)
+if ouo_dfs:
+    from functools import reduce
+    ouo_df = reduce(lambda df1, df2: df1.unionByName(df2, allowMissingColumns=True), ouo_dfs)
+    ouo_df = harmonized_ouo_cleaned.unionByName(ouo_df, allowMissingColumns=True)
+    ouo_df.write.mode("overwrite").saveAsTable(HARMONIZED_OFFICIAL)
+
 
 # COMMAND ----------
 
-extras = ['migrated_from_urban']
+from pyspark.sql.functions import col, coalesce
+
+# 1. Create the update DataFrame from your Python list
+update_columns = ["country", "year", "survey", "new_version"]
+updates_df = spark.createDataFrame(update_list, schema=update_columns).withColumn("new_version", col("new_version").cast("int"))
+
+# 2. Join the original metadata with the updates
+# We use a left join so we keep all rows, even those that weren't updated
+metadata_updated_df = metadata.join(
+    updates_df, 
+    on=["country", "year", "survey"], 
+    how="left"
+)
+
+# 3. Use 'coalesce' to pick 'new_version' if it exists, otherwise keep 'stacked_all_table_version'
+metadata_final = metadata_updated_df.withColumn(
+    "stacked_all_table_version", 
+    coalesce(col("new_version"), col("stacked_all_table_version"))
+).withColumn(
+    "stacked_ouo_table_version", 
+    coalesce(col("new_version"), col("stacked_ouo_table_version"))
+).drop("new_version") # Clean up the helper column
+
+metadata_final.write.mode("overwrite").saveAsTable(metadata_table)
