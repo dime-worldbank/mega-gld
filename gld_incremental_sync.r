@@ -40,7 +40,8 @@ change_keys <- identify_changes(metadata)
 # Validation: Check if any changes were detected
 num_changes <- validate_change_detection(change_keys)
 if (num_changes == 0) {
-  quit(save = "no")
+  message("No changes needed: Stopping execution")
+  stop("Execution halted: No changes to process.")
 }
 
 # ============================================================================
@@ -162,23 +163,24 @@ validate_processing_count(length(all_dfs), update_list, TO_REMOVE)
 
 # Union all tables and write results
 if (length(all_dfs) > 0) {
-  # Union all new dataframes
-  final_df <- Reduce(function(df1, df2) sdf_bind_rows(df1, df2), all_dfs)
-  # Union with cleaned existing data
-  final_df <- sdf_bind_rows(harmonized_all_cleaned, final_df)
+  # Add cleaned existing data to the list first
+  all_dfs <- c(list(harmonized_all_cleaned), all_dfs)
+  # Union all dataframes at once
+  final_df <- do.call(sdf_bind_rows, all_dfs)
   # Write to table
-  spark_write_table(final_df, HARMONIZED_CONFIDENTIAL, mode = "overwrite",options = list("overwriteSchema" = "true"))
+  spark_write_table(final_df, HARMONIZED_CONFIDENTIAL, mode = "overwrite", options = list("overwriteSchema" = "true"))
 }
 
 if (length(ouo_dfs) > 0) {
-  # Union all new dataframes
-  ouo_df <- Reduce(function(df1, df2) sdf_bind_rows(df1, df2), ouo_dfs)
-  # Union with cleaned existing data
-  ouo_df <- sdf_bind_rows(harmonized_ouo_cleaned, ouo_df)
+  # Add cleaned existing data to the list first
+  ouo_dfs <- c(list(harmonized_ouo_cleaned), ouo_dfs)
+  # Union all dataframes at once
+  ouo_df <- do.call(sdf_bind_rows, ouo_dfs)
   # Write to table
   spark_write_table(ouo_df, HARMONIZED_OFFICIAL, mode = "overwrite", options = list("overwriteSchema" = "true"))
 }
 
+#
 # ============================================================================
 # Update metadata with new stacked versions
 # ============================================================================

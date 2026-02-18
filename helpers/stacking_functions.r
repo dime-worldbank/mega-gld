@@ -269,13 +269,20 @@ validate_metadata_sync <- function(metadata_table_name, change_keys_df, sc) {
   # Read back the updated metadata
   metadata_check <- tbl(sc, metadata_table_name)
   
-  # Join with change_keys to verify updates
-  validation <- metadata_check %>%
-    inner_join(
-      change_keys_df %>% select(countrycode, year, survname, table_version),
-      by = c("country" = "countrycode", "year", "survey" = "survname")
-    ) %>%
+  # Collect change_keys first to ensure columns are accessible
+  change_keys_collected <- change_keys_df %>%
+    select(countrycode, year, survname, table_version) %>%
     collect()
+  
+  # Join with metadata to verify updates
+  validation <- metadata_check %>%
+    select(country, year, survey, stacked_all_table_version, stacked_ouo_table_version) %>%
+    mutate(year = as.integer(year)) %>%
+    collect() %>%
+    inner_join(
+      change_keys_collected,
+      by = c("country" = "countrycode", "year" = "year", "survey" = "survname")
+    )
   
   # Check that all stacked versions match the table version
   sync_errors <- validation %>%
