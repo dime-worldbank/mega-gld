@@ -1,6 +1,4 @@
 # Databricks notebook source
-# This test is designed to be executed from the 'testthat_run' file. Please adjust the relative path if running this notebook standalone.
-
 suppressPackageStartupMessages({
   library(testthat)
   library(sparklyr)
@@ -9,8 +7,8 @@ suppressPackageStartupMessages({
 
 # COMMAND ----------
 
-source("../helpers/stacking_functions.r")
-source("../helpers/stacking_schema.r")
+source("../../helpers/stacking_functions.r")
+source("../../helpers/stacking_schema.r")
 
 # COMMAND ----------
 
