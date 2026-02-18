@@ -12,7 +12,7 @@ source("helpers/stacking_functions.r")
 sc <- spark_connect(method = "databricks")
 
 # Configuration
-TABLE_QULIFIER <- "prd_csc_mega.sgld48"
+TABLE_QUALIFIER <- "prd_csc_mega.sgld48"
 OFFICIAL_CLASS <- "Official Use"
 
 # TODO: add this to the metadata table as a flag
@@ -22,9 +22,9 @@ TO_REMOVE <- c(
 )
 
 # Table names
-METADATA_TABLE <- paste0(TABLE_QULIFIER, "._ingestion_metadata")
-HARMONIZED_CONFIDENTIAL <- paste0(TABLE_QULIFIER, "GLD_HARMONIZED_ALL")
-HARMONIZED_OFFICIAL <- paste0(TABLE_QULIFIER, ".GLD_HARMONIZED_OUO")
+METADATA_TABLE <- paste0(TABLE_QUALIFIER, "._ingestion_metadata")
+HARMONIZED_CONFIDENTIAL <- paste0(TABLE_QUALIFIER, ".GLD_HARMONIZED_ALL")
+HARMONIZED_OFFICIAL <- paste0(TABLE_QUALIFIER, ".GLD_HARMONIZED_OUO")
 
 # Get schema
 schema <- get_gld_schema()
@@ -40,12 +40,12 @@ change_keys <- identify_changes(metadata)
 # Validation: Check if any changes were detected
 num_changes <- validate_change_detection(change_keys)
 if (num_changes == 0) {
-  message("No changes needed: Stopping execution")
-  stop("Execution halted: No changes to process.")
+  stop("No changes detected in metadata; execution halted: no updates to process.")
 }
 
 # ============================================================================
 # Get or create existing harmonized tables and remove records to be updated
+# ============================================================================
 # ============================================================================
 
 # Build the column definitions for table creation if needed
@@ -131,7 +131,7 @@ for (i in seq_along(update_list)) {
   message(sprintf("Processing: %s", tbl_name))
   
   # Read source table
-  src_df <- tbl(sc, paste0(TABLE_QULIFIER, ".", tbl_name))
+  src_df <- tbl(sc, paste0(TABLE_QUALIFIER, ".", tbl_name))
   
   # Align to schema
   result <- align_dataframe_to_schema(src_df, schema, country_val, survey_val)

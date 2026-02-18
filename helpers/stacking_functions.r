@@ -124,8 +124,9 @@ align_dataframe_to_schema <- function(src_df, schema, country_val, survey_val) {
   dynamic_cols <- setdiff(dynamic_cols, expected_cols)
   
   # Add dynamic columns to mutate expressions
+  mutate_exprs <- list()
   for (dc in dynamic_cols) {
-    mutate_exprs[[dc]] <- sql(paste0("CAST(", dc, " AS string)"))
+    mutate_exprs[[dc]] <- expr(as.character(!!sym(dc)))
   }
   
   # Final column list
@@ -137,7 +138,7 @@ align_dataframe_to_schema <- function(src_df, schema, country_val, survey_val) {
   # Apply transformation
   aligned_df <- src_df %>%
     mutate(!!!mutate_exprs) %>%
-    select(all_of(final_column_names))
+    select(any_of(final_column_names))
   
   return(list(
     aligned_df = aligned_df,
