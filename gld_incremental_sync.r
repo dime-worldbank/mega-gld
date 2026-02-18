@@ -12,7 +12,7 @@ source("helpers/stacking_functions.r")
 sc <- spark_connect(method = "databricks")
 
 # Configuration
-TABLE_QULIFIER <- "prd_csc_mega.sgld48"
+TABLE_QUALIFIER <- "prd_csc_mega.sgld48"
 OFFICIAL_CLASS <- "Official Use"
 
 # TODO: add this to the metadata table as a flag
@@ -22,9 +22,9 @@ TO_REMOVE <- c(
 )
 
 # Table names
-METADATA_TABLE <- paste0(TABLE_QULIFIER, "._ingestion_metadata")
-HARMONIZED_CONFIDENTIAL <- paste0(TABLE_QULIFIER, "GLD_HARMONIZED_ALL")
-HARMONIZED_OFFICIAL <- paste0(TABLE_QULIFIER, ".GLD_HARMONIZED_OUO")
+METADATA_TABLE <- paste0(TABLE_QUALIFIER, "._ingestion_metadata")
+HARMONIZED_CONFIDENTIAL <- paste0(TABLE_QUALIFIER, ".GLD_HARMONIZED_ALL")
+HARMONIZED_OFFICIAL <- paste0(TABLE_QUALIFIER, ".GLD_HARMONIZED_OUO")
 
 # Get schema
 schema <- get_gld_schema()
@@ -131,7 +131,7 @@ for (i in seq_along(update_list)) {
   message(sprintf("Processing: %s", tbl_name))
   
   # Read source table
-  src_df <- tbl(sc, paste0(TABLE_QULIFIER, ".", tbl_name))
+  src_df <- tbl(sc, paste0(TABLE_QUALIFIER, ".", tbl_name))
   
   # Align to schema
   result <- align_dataframe_to_schema(src_df, schema, country_val, survey_val)
