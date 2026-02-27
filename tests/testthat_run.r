@@ -59,8 +59,4 @@ if (!exists("is_databricks")) {
 
 # COMMAND ----------
 
-# MAGIC %run ./testthat/test_stacking_integration
-
-# COMMAND ----------
-
 
