@@ -1,7 +1,6 @@
 # Databricks notebook source
 suppressPackageStartupMessages({
   library(testthat)
-  library(sparklyr)
   library(dplyr)
 })
 
@@ -12,14 +11,15 @@ source("../../helpers/stacking_schema.r")
 
 # COMMAND ----------
 
-# Setup Spark connection for tests
-sc <- spark_connect(method = "databricks")
+# Most tests use plain R data frames and run anywhere (CI, local, Databricks).
+# Tests for align_dataframe_to_schema require a live Spark connection and are
+# skipped automatically when one is not available.
 
 # Define the constant used inside identify_changes
 OFFICIAL_CLASS <- "Official Use"
 
-# Helper: temporarily replace get_delta_table_version with a stub that
-# returns a fixed version number, then restore the original on exit.
+# Helper: temporarily replace get_delta_table_version with a stub that returns
+# a fixed version number, then restores the original on exit.
 with_mocked_delta_version <- function(version, expr) {
   original <- get("get_delta_table_version", envir = .GlobalEnv)
   assign("get_delta_table_version",
@@ -37,7 +37,7 @@ with_mocked_delta_version <- function(version, expr) {
 
 test_that("identify_changes detects new tables (NULL stacked_all_table_version)", {
   # Case 1: stacked_all_table_version is NA => table has never been stacked
-  test_metadata <- copy_to(sc, data.frame(
+  test_metadata <- data.frame(
     table_name = "TEST_2020_LFS_V01_M_V01_A_GLD_ALL",
     classification = "Official Use",
     country = "TST",
@@ -48,9 +48,9 @@ test_that("identify_changes detects new tables (NULL stacked_all_table_version)"
     stacked_all_table_version = NA_integer_,
     stacked_ouo_table_version = NA_integer_,
     stringsAsFactors = FALSE
-  ), overwrite = TRUE)
+  )
 
-  changes <- identify_changes(test_metadata) %>% collect()
+  changes <- identify_changes(test_metadata)
 
   expect_equal(nrow(changes), 1)
   expect_equal(changes$table_name, "TEST_2020_LFS_V01_M_V01_A_GLD_ALL")
@@ -61,9 +61,8 @@ test_that("identify_changes detects new tables (NULL stacked_all_table_version)"
 })
 
 test_that("identify_changes detects Official Use tables with missing OUO version", {
-  # Case 2: stacked_all is already set, but stacked_ouo is NA for an Official
-  # Use survey => the OUO harmonised table still needs updating.
-  test_metadata <- copy_to(sc, data.frame(
+  # Case 2: stacked_all is set but stacked_ouo is NA for an Official Use survey
+  test_metadata <- data.frame(
     table_name = "TEST_2020_LFS_V01_M_V01_A_GLD_ALL",
     classification = "Official Use",
     country = "TST",
@@ -71,20 +70,19 @@ test_that("identify_changes detects Official Use tables with missing OUO version
     survey = "LFS",
     table_version = 3,
     stacking = 1,
-    stacked_all_table_version = 3,          # ALL is current
-    stacked_ouo_table_version = NA_integer_, # OUO is missing
+    stacked_all_table_version = 3L,
+    stacked_ouo_table_version = NA_integer_,
     stringsAsFactors = FALSE
-  ), overwrite = TRUE)
+  )
 
-  changes <- identify_changes(test_metadata) %>% collect()
+  changes <- identify_changes(test_metadata)
 
   expect_equal(nrow(changes), 1)
   expect_equal(changes$table_name, "TEST_2020_LFS_V01_M_V01_A_GLD_ALL")
 })
 
 test_that("identify_changes ignores fully up-to-date tables", {
-  # Both stacked versions match => nothing to do
-  test_metadata <- copy_to(sc, data.frame(
+  test_metadata <- data.frame(
     table_name = "TEST_2020_LFS_V01_M_V01_A_GLD_ALL",
     classification = "Official Use",
     country = "TST",
@@ -92,19 +90,18 @@ test_that("identify_changes ignores fully up-to-date tables", {
     survey = "LFS",
     table_version = 2,
     stacking = 1,
-    stacked_all_table_version = 2,
-    stacked_ouo_table_version = 2,
+    stacked_all_table_version = 2L,
+    stacked_ouo_table_version = 2L,
     stringsAsFactors = FALSE
-  ), overwrite = TRUE)
+  )
 
-  changes <- identify_changes(test_metadata) %>% collect()
+  changes <- identify_changes(test_metadata)
 
   expect_equal(nrow(changes), 0)
 })
 
 test_that("identify_changes excludes tables with stacking = 0", {
-  # Rows flagged stacking = 0 must never be processed, even if versions are NA
-  test_metadata <- copy_to(sc, data.frame(
+  test_metadata <- data.frame(
     table_name = "TEST_2020_LFS_V01_M_V01_A_GLD_ALL",
     classification = "Official Use",
     country = "TST",
@@ -115,17 +112,17 @@ test_that("identify_changes excludes tables with stacking = 0", {
     stacked_all_table_version = NA_integer_,
     stacked_ouo_table_version = NA_integer_,
     stringsAsFactors = FALSE
-  ), overwrite = TRUE)
+  )
 
-  changes <- identify_changes(test_metadata) %>% collect()
+  changes <- identify_changes(test_metadata)
 
   expect_equal(nrow(changes), 0)
 })
 
 test_that("identify_changes handles both Case 1 and Case 2 simultaneously", {
   # Row 1 (2020): ALL is set, OUO is NA, Official Use => Case 2 fires
-  # Row 2 (2021): ALL is NA => Case 1 fires
-  test_metadata <- copy_to(sc, data.frame(
+  # Row 2 (2021): ALL is NA                            => Case 1 fires
+  test_metadata <- data.frame(
     table_name = c(
       "TEST_2020_LFS_V01_M_V01_A_GLD_ALL",
       "TEST_2021_LFS_V01_M_V01_A_GLD_ALL"
@@ -139,9 +136,9 @@ test_that("identify_changes handles both Case 1 and Case 2 simultaneously", {
     stacked_all_table_version = c(2L, NA_integer_),
     stacked_ouo_table_version = c(NA_integer_, NA_integer_),
     stringsAsFactors = FALSE
-  ), overwrite = TRUE)
+  )
 
-  changes <- identify_changes(test_metadata) %>% collect()
+  changes <- identify_changes(test_metadata)
 
   expect_equal(nrow(changes), 2)
 })
@@ -153,7 +150,7 @@ test_that("identify_changes handles both Case 1 and Case 2 simultaneously", {
 # =============================================================================
 
 test_that("build_update_list creates proper list structure", {
-  test_changes <- copy_to(sc, data.frame(
+  test_changes <- data.frame(
     table_name = c(
       "TEST_2020_LFS_V01_M_V01_A_GLD_ALL",
       "TEST_2021_LFS_V01_M_V01_A_GLD_ALL"
@@ -163,28 +160,26 @@ test_that("build_update_list creates proper list structure", {
     year = c(2020L, 2021L),
     survname = c("LFS", "LFS"),
     table_version = c(1, 2),
-    stacked_all_table_version = c(NA_integer_, 1),
-    stacked_ouo_table_version = c(NA_integer_, 1),
+    stacked_all_table_version = c(NA_integer_, 1L),
+    stacked_ouo_table_version = c(NA_integer_, 1L),
     stringsAsFactors = FALSE
-  ), overwrite = TRUE)
+  )
 
   update_list <- build_update_list(test_changes)
 
   expect_equal(length(update_list), 2)
 
-  # Check first item
   expect_equal(update_list[[1]]$table_name, "TEST_2020_LFS_V01_M_V01_A_GLD_ALL")
   expect_equal(update_list[[1]]$classification, "Official Use")
   expect_equal(update_list[[1]]$country, "TST")
-  expect_equal(update_list[[1]]$year, 2020)
+  expect_equal(update_list[[1]]$year, 2020L)
   expect_equal(update_list[[1]]$survname, "LFS")
 
-  # Check second item
   expect_equal(update_list[[2]]$table_name, "TEST_2021_LFS_V01_M_V01_A_GLD_ALL")
 })
 
 test_that("build_update_list handles empty input", {
-  test_changes <- copy_to(sc, data.frame(
+  test_changes <- data.frame(
     table_name = character(0),
     classification = character(0),
     countrycode = character(0),
@@ -194,7 +189,7 @@ test_that("build_update_list handles empty input", {
     stacked_all_table_version = integer(0),
     stacked_ouo_table_version = integer(0),
     stringsAsFactors = FALSE
-  ), overwrite = TRUE)
+  )
 
   update_list <- build_update_list(test_changes)
 
@@ -205,15 +200,15 @@ test_that("build_update_list handles empty input", {
 
 # =============================================================================
 # Test align_dataframe_to_schema function
+# These tests require a live Spark connection (sc) and are skipped in CI.
 # =============================================================================
 
 test_that("align_dataframe_to_schema adds countrycode and survname", {
+  skip_if(!exists("sc"), "Spark connection (sc) required")
   schema <- get_gld_schema()
 
   test_df <- copy_to(sc, data.frame(
-    year = 2020L,
-    hhid = "001",
-    pid = "001-01",
+    year = 2020L, hhid = "001", pid = "001-01",
     stringsAsFactors = FALSE
   ), overwrite = TRUE)
 
@@ -225,53 +220,45 @@ test_that("align_dataframe_to_schema adds countrycode and survname", {
 })
 
 test_that("align_dataframe_to_schema fills missing columns with NULL", {
+  skip_if(!exists("sc"), "Spark connection (sc) required")
   schema <- get_gld_schema()
 
   test_df <- copy_to(sc, data.frame(
-    hhid = "001",
-    pid = "001-01",
+    hhid = "001", pid = "001-01",
     stringsAsFactors = FALSE
   ), overwrite = TRUE)
 
   result <- align_dataframe_to_schema(test_df, schema, "TST", "LFS")
   aligned_df <- result$aligned_df %>% collect()
 
-  # All schema columns must be present
-  schema_cols <- names(schema)
-  expect_true(all(schema_cols %in% names(aligned_df)))
-
-  # Columns absent from the source should be NA
+  expect_true(all(names(schema) %in% names(aligned_df)))
   expect_true(is.na(aligned_df$lstatus[1]))
   expect_true(is.na(aligned_df$empstat[1]))
 })
 
 test_that("align_dataframe_to_schema identifies extra columns", {
+  skip_if(!exists("sc"), "Spark connection (sc) required")
   schema <- get_gld_schema()
 
   test_df <- copy_to(sc, data.frame(
-    hhid = "001",
-    pid = "001-01",
-    extra_col1 = "value1",
-    extra_col2 = "value2",
+    hhid = "001", pid = "001-01",
+    extra_col1 = "value1", extra_col2 = "value2",
     stringsAsFactors = FALSE
   ), overwrite = TRUE)
 
   result <- align_dataframe_to_schema(test_df, schema, "TST", "LFS")
-  extra_cols <- result$extra_cols
 
-  expect_true("extra_col1" %in% extra_cols)
-  expect_true("extra_col2" %in% extra_cols)
+  expect_true("extra_col1" %in% result$extra_cols)
+  expect_true("extra_col2" %in% result$extra_cols)
 })
 
 test_that("align_dataframe_to_schema preserves dynamic columns", {
+  skip_if(!exists("sc"), "Spark connection (sc) required")
   schema <- get_gld_schema()
 
   test_df <- copy_to(sc, data.frame(
-    hhid = "001",
-    pid = "001-01",
-    subnatid1 = "Region1",
-    subnatid2 = "District1",
-    gaul_adm1_code = "12345",
+    hhid = "001", pid = "001-01",
+    subnatid1 = "Region1", subnatid2 = "District1", gaul_adm1_code = "12345",
     stringsAsFactors = FALSE
   ), overwrite = TRUE)
 
@@ -291,33 +278,32 @@ test_that("align_dataframe_to_schema preserves dynamic columns", {
 # =============================================================================
 
 test_that("update_metadata_versions updates stacked versions using Delta table version", {
-  # The function derives new stacked versions from get_delta_table_version(),
-  # not from table_version in change_keys. We stub it to return 5.
+  # get_delta_table_version is stubbed to return 5; sc is not used by the stub.
   with_mocked_delta_version(5, {
-    test_metadata <- copy_to(sc, data.frame(
+    test_metadata <- data.frame(
       table_name = "TEST_2020_LFS_V01_M_V01_A_GLD_ALL",
       classification = "Official Use",
       country = "TST",
-      year = 2020,
+      year = 2020L,
       survey = "LFS",
-      table_version = 1,
+      table_version = 1L,
       stacked_all_table_version = NA_integer_,
       stacked_ouo_table_version = NA_integer_,
       stringsAsFactors = FALSE
-    ), overwrite = TRUE)
+    )
 
-    test_changes <- copy_to(sc, data.frame(
+    test_changes <- data.frame(
       countrycode = "TST",
       year = 2020L,
       survname = "LFS",
-      table_version = 1,
+      table_version = 1L,
       stringsAsFactors = FALSE
-    ), overwrite = TRUE)
+    )
 
     updated <- update_metadata_versions(
       test_metadata, test_changes,
-      "dummy_all_table", "dummy_ouo_table", sc
-    ) %>% collect()
+      "dummy_all_table", "dummy_ouo_table", sc = NULL
+    )
 
     # Both versions should equal the mocked Delta version (5)
     expect_equal(updated$stacked_all_table_version[1], 5L)
@@ -327,41 +313,41 @@ test_that("update_metadata_versions updates stacked versions using Delta table v
 
 test_that("update_metadata_versions preserves unchanged records", {
   with_mocked_delta_version(5, {
-    test_metadata <- copy_to(sc, data.frame(
+    test_metadata <- data.frame(
       table_name = c(
         "TEST_2020_LFS_V01_M_V01_A_GLD_ALL",
         "TEST_2021_LFS_V01_M_V01_A_GLD_ALL"
       ),
       classification = c("Official Use", "Official Use"),
       country = c("TST", "TST"),
-      year = c(2020, 2021),
+      year = c(2020L, 2021L),
       survey = c("LFS", "LFS"),
-      table_version = c(1, 2),
+      table_version = c(1L, 2L),
       stacked_all_table_version = c(NA_integer_, 3L),
       stacked_ouo_table_version = c(NA_integer_, 3L),
       stringsAsFactors = FALSE
-    ), overwrite = TRUE)
+    )
 
     # Only request update for the 2020 row
-    test_changes <- copy_to(sc, data.frame(
+    test_changes <- data.frame(
       countrycode = "TST",
       year = 2020L,
       survname = "LFS",
-      table_version = 1,
+      table_version = 1L,
       stringsAsFactors = FALSE
-    ), overwrite = TRUE)
+    )
 
     updated <- update_metadata_versions(
       test_metadata, test_changes,
-      "dummy_all_table", "dummy_ouo_table", sc
-    ) %>% collect()
+      "dummy_all_table", "dummy_ouo_table", sc = NULL
+    )
 
-    # 2020 row should be updated to the mocked Delta version
-    row_2020 <- updated[updated$country == "TST" & updated$year == 2020, ]
+    # 2020 row should be updated to the mocked Delta version (5)
+    row_2020 <- updated[updated$country == "TST" & updated$year == 2020L, ]
     expect_equal(row_2020$stacked_all_table_version, 5L)
 
     # 2021 row was not in change_keys and must remain at 3
-    row_2021 <- updated[updated$country == "TST" & updated$year == 2021, ]
+    row_2021 <- updated[updated$country == "TST" & updated$year == 2021L, ]
     expect_equal(row_2021$stacked_all_table_version, 3L)
     expect_equal(row_2021$stacked_ouo_table_version, 3L)
   })
@@ -374,12 +360,12 @@ test_that("update_metadata_versions preserves unchanged records", {
 # =============================================================================
 
 test_that("validate_change_detection returns TRUE when changes are found", {
-  test_changes <- copy_to(sc, data.frame(
+  test_changes <- data.frame(
     countrycode = c("TST", "TST"),
     year = c(2020L, 2021L),
     survname = c("LFS", "LFS"),
     stringsAsFactors = FALSE
-  ), overwrite = TRUE)
+  )
 
   result <- suppressMessages(validate_change_detection(test_changes))
 
@@ -387,12 +373,12 @@ test_that("validate_change_detection returns TRUE when changes are found", {
 })
 
 test_that("validate_change_detection stops when no changes are found", {
-  test_empty <- copy_to(sc, data.frame(
+  test_empty <- data.frame(
     countrycode = character(0),
     year = integer(0),
     survname = character(0),
     stringsAsFactors = FALSE
-  ), overwrite = TRUE)
+  )
 
   expect_error(
     suppressMessages(validate_change_detection(test_empty)),
