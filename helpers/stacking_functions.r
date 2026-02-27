@@ -2,7 +2,7 @@
 
 library(dplyr)
 library(sparklyr)
-
+OFFICIAL_CLASS <- "Official Use"
 
 #' Identify tables that need to be updated based on version changes
 #'
