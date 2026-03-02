@@ -68,9 +68,21 @@ test_that("delta identification pipeline finds dta files and filters to latest v
     ),
     list(
       country = "IND",
+      dataset = "IND_2021-Q2_PLFS",
+      version = "IND_2021-Q2_PLFS_V01_M_V01_A_GLD",
+      dta     = "IND_2021-Q2_PLFS_V01_M_V01_A_GLD_ALL.dta"
+    ),
+    list(
+      country = "IND",
       dataset = "IND_2022-Q3_PLFS",
       version = "IND_2022-Q3_PLFS_V01_M_V01_A_GLD",
       dta = "IND_2022-Q3_PLFS_V01_M_V01_A_GLD_ALL.dta"
+    ),
+    list(
+      country = "IND",
+      dataset = "IND_2022-Q3_PLFS",
+      version = "IND_2022-Q3_PLFS_V01_M_V02_A_GLD",
+      dta     = "IND_2022-Q3_PLFS_V01_M_V02_A_GLD_ALL.dta"
     )
   )
 
@@ -84,7 +96,7 @@ test_that("delta identification pipeline finds dta files and filters to latest v
 
   latest_versions <- identify_latest_versions(root_dir)
 
-  expect_equal(nrow(latest_versions), 5)
+  expect_equal(nrow(latest_versions), 6)
 
   # M_version takes priority
   usa_lfs <- latest_versions %>% filter(country == "USA", survey == "LFS")
@@ -101,14 +113,21 @@ test_that("delta identification pipeline finds dta files and filters to latest v
   usa_cps <- latest_versions %>% filter(country == "USA", survey == "CPS")
   expect_equal(nrow(usa_cps), 1)
 
-  # Quarter extraction
-  q1 <- latest_versions %>% filter(quarter == "Q1")
-  q3 <- latest_versions %>% filter(quarter == "Q3")
+  # Quarter extraction + quarter-aware grouping keeps both Q1 and Q2 for IND 2021 PLFS
+  ind_2021_plfs <- latest_versions %>% filter(country == "IND", year == "2021", survey == "PLFS")
+  expect_equal(nrow(ind_2021_plfs), 2)
+  expect_equal(sort(ind_2021_plfs$quarter), c("Q1", "Q2"))
+
+  q1 <- latest_versions %>% filter(country == "IND", year == "2021", survey == "PLFS", quarter == "Q1")
+  q2 <- latest_versions %>% filter(country == "IND", year == "2021", survey == "PLFS", quarter == "Q2")
   expect_equal(nrow(q1), 1)
-  expect_equal(nrow(q3), 1)
-  expect_equal(q1$country, "IND")
-  expect_equal(q1$year, "2021")
-  expect_equal(q3$year, "2022")
+  expect_equal(nrow(q2), 1)
+
+  # Within-quarter version selection works for quarterly data too (IND 2022 Q3 picks A_version = 2)
+  ind_2022_q3 <- latest_versions %>% filter(country == "IND", year == "2022", survey == "PLFS", quarter == "Q3")
+  expect_equal(nrow(ind_2022_q3), 1)
+  expect_equal(ind_2022_q3$A_version, 2L)
+  expect_true(grepl("IND_2022-Q3_PLFS_V01_M_V02_A", ind_2022_q3$dta_path))
 
   unlink(root_dir, recursive = TRUE)
 })
