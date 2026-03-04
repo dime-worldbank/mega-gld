@@ -1,11 +1,13 @@
+# Databricks notebook source
 # This script processes and stacks GLD harmonized tables
 
 library(sparklyr)
 library(dplyr)
 library(DBI)
 
-# Source helper functions
+# COMMAND ----------
 
+# Source helper functions
 source("helpers/stacking_schema.r")
 source("helpers/stacking_functions.r")
 

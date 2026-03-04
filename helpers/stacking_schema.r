@@ -1,3 +1,4 @@
+# Databricks notebook source
 # Schema definitions for GLD harmonized tables
 
 #' Get the standard GLD harmonized schema

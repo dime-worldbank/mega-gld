@@ -1,3 +1,4 @@
+# Databricks notebook source
 # Core data processing functions for GLD stacking pipeline
 
 library(dplyr)
