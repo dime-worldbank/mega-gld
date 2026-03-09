@@ -16,6 +16,8 @@ JSON_DIR <- "/Volumes/prd_csc_mega/sgld48/vgld48/Workspace/json_to_publish"
 TARGET_SCHEMA  <- "prd_csc_mega.sgld48"
 OUO_SCHEMA     <- "prd_mega.sgld48"
 METADATA_TABLE <- paste0(TARGET_SCHEMA, "._ingestion_metadata")
+HARMONIZED_ALL <- paste0(TARGET_SCHEMA, ".gld_harmonized_all")
+HARMONIZED_OFFICIAL <- paste0(TARGET_SCHEMA, ".gld_harmonized_ouo")
 
 # GitHub (for documentation links)
 GH_OWNER  <- "worldbank"

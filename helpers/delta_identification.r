@@ -67,3 +67,4 @@ filter_latest_versions <- function(parsed) {
     slice(1) %>%
     ungroup()
 }
+
