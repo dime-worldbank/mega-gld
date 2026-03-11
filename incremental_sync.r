@@ -37,12 +37,6 @@ sc <- spark_connect(method = "databricks")
 # Classification tagging
 OFFICIAL_CLASS     <- "Official Use"
 CONFIDENTIAL_CLASS <- "Confidential"
-TARGET_SCHEMA  <- "prd_csc_mega.sgld48"
-METADATA_TABLE <- paste0(TARGET_SCHEMA, "._ingestion_metadata")
-
-# Table names
-HARMONIZED_ALL <- paste0(TARGET_SCHEMA, ".GLD_HARMONIZED_ALL")
-HARMONIZED_OFFICIAL <- paste0(TARGET_SCHEMA, ".GLD_HARMONIZED_OUO")
 
 # Get schema
 schema <- get_gld_schema()

@@ -1,11 +1,12 @@
 import pyreadstat
 from pyspark.sql.functions import col
+import numpy as np
 
 def sql_literal(v):
     if v is None:
         return "NULL"
-    if isinstance(v, bool):
-        return "TRUE" if v else "FALSE"
+    if isinstance(v, (bool, np.bool_)):
+        return "TRUE" if bool(v) else "FALSE"
     if isinstance(v, (int, float)):
         return str(v)
     if isinstance(v, str):
