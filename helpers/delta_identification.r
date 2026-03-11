@@ -54,4 +54,12 @@ make_table_name <- function(path) {
   tolower(nm)
 }
 
+filter_latest_versions <- function(parsed) {
+  parsed %>%
+    group_by(country, year, survey, quarter) %>%
+    arrange(desc(M_version), desc(A_version)) %>%
+    slice(1) %>%
+    ungroup()
+}
+
 
