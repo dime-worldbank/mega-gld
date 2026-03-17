@@ -19,10 +19,10 @@ USING (
         classification
     FROM prd_csc_mega.sgld48._ingestion_metadata
 ) AS source
-ON target.country = source.country
-   AND target.year = source.year
-   AND target.survey = source.survey
-   AND target.classification = source.classification
+ON target.country <=> source.country
+   AND target.year <=> source.year
+   AND target.survey <=> source.survey
+   AND target.classification <=> source.classification
 
 WHEN NOT MATCHED THEN
 INSERT (country, year, survey, classification)
