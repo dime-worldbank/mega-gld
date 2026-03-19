@@ -2,6 +2,7 @@
 library(purrr)
 library(dplyr)
 library(stringr)
+library(tidyr)
 
 list_dta_files <- function(paths) {
   files <- unlist(map(paths, ~ list.files(.x, pattern = "\\.dta$", full.names = TRUE)))
