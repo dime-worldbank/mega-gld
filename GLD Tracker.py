@@ -302,7 +302,7 @@ import os
 json_str = json.dumps(output, indent=2, ensure_ascii=False)
 
 # Write using plain Python file I/O instead of dbutils
-output_path = "/Workspace/Users/jbajwa@worldbank.org/variable_coverage.json"
+output_path = JSON_OUTPUT_PATH
 
 with open(output_path, "w", encoding="utf-8") as f:
     f.write(json_str)
