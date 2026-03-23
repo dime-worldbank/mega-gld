@@ -231,17 +231,18 @@ get_delta_table_version <- function(table_name, sc) {
   # Split the name by the dots and quote each part individually
   parts <- unlist(strsplit(table_name, "\\."))
   quoted_parts <- paste0("`", parts, "`", collapse = ".")
-  
-  history_query <- sprintf("DESCRIBE HISTORY %s", quoted_parts)
-  
+
+  # Only fetch the latest version to avoid collecting entire history to driver
+  history_query <- sprintf("DESCRIBE HISTORY %s LIMIT 1", quoted_parts)
+
   # Execute
   history <- DBI::dbGetQuery(sc, history_query)
-  
+
   if (nrow(history) == 0) {
     stop(sprintf("No history found for table %s", table_name))
   }
-  
-  return(max(history$version))
+
+  return(history$version[1])
 }
 
 
