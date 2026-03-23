@@ -5,13 +5,13 @@
 #### Automation pipeline to onboard the Global Labor Database to the Corporate Data Lake and publish its datasets to the Microdata Library
 #### 
 The pipeline is organized in three different jobs:
-1. Ingestion and Stacking (daily) [ADD LINK]
-2. Publication of individual tables to Microdata Library (monthly) [ADD LINK]
-3. Publication of stacked tables to Microdata Library (monthly) [ADD LINK]
+1. Ingestion and Stacking (daily)
+2. Publication of individual tables to Microdata Library (monthly) 
+3. Publication of stacked tables to Microdata Library (monthly) 
 
 This is a list of all support folders/files/tables:
 * The **`_ingestion_metadata table`** is a table that keeps track of which tables have been ingested and published in the Microdata Library, as well as of some dataset-specific metadata. It also stores the path to the dta files and do files that have been associated with that specific ingestion
-* [This Sharepoint file](https://worldbankgroup.sharepoint.com/:x:/r/sites/dap/gld/Shared%20Documents/survey-metadata.xlsx?d=w1f9fabfc828d4908bd19e50216a1584d&csf=1&web=1&e=I8CCd4&nav=MTVfezc0NzcyRDUzLUEwQTAtNkY0Ri1CRERGLUY5NjkyNjhBMUUzNH0) keeps track of all country survey specific metadata. 
+* All country survey specific metadata is stored in am Excel file on the GLD Sharepoint.
 > When a new survey is onboarded to the GLD catalog, the survey should be added in this csv file. 
 * Country codes and names are matched using the MEGA table at prd_mega.indicator.country. 
 * The folder /Volumes/prd_csc_mega/sgld48/vgld48/Workspace/**json_to_publish**/ contains all json files awaiting publications. 
