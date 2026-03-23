@@ -9,14 +9,30 @@ OFFICIAL_CLASS <- "Official Use"
 #' before entering the stacking pipeline. Stops with an informative error
 #' if any check fails.
 #'
-#' @param df A data.frame (or tibble) to validate.
+#' @param df A Spark DataFrame or local data.frame to validate.
 #' @param caller Name of the calling context, used in error messages.
 validate_metadata_inputs <- function(df, caller = "unknown") {
   errors <- character()
 
+  # Check if it's a Spark DataFrame (tbl_spark) or local data.frame
+  is_spark_df <- inherits(df, "tbl_spark")
+
   # quarter must be a non-null string ("NA" for annual surveys)
-  if ("quarter" %in% names(df) && any(is.na(df$quarter))) {
-    errors <- c(errors, "column 'quarter' contains NA values — use the string 'NA' for annual surveys")
+  if (is_spark_df) {
+    # For Spark DataFrames, check using Spark operations (only collect the count)
+    na_count <- df %>%
+      filter(is.na(quarter)) %>%
+      count() %>%
+      collect() %>%
+      pull(n)
+    if (na_count > 0) {
+      errors <- c(errors, sprintf("column 'quarter' contains %d NA values — use the string 'NA' for annual surveys", na_count))
+    }
+  } else {
+    # For local data.frames
+    if ("quarter" %in% names(df) && any(is.na(df$quarter))) {
+      errors <- c(errors, "column 'quarter' contains NA values — use the string 'NA' for annual surveys")
+    }
   }
 
   if (length(errors) > 0) {
@@ -177,6 +193,31 @@ align_dataframe_to_schema <- function(src_df, schema, country_val, survey_val, q
     aligned_df = aligned_df,
     extra_cols = extra_cols
   ))
+}
+
+
+#' Pad a DataFrame with missing columns (as NULL) to match a target schema
+#'
+#' @param df Spark DataFrame to pad
+#' @param target_columns Character vector of all columns that should be present
+#' @return DataFrame with all target columns (missing ones filled with NULL as STRING)
+pad_dataframe_columns <- function(df, target_columns) {
+  current_cols <- colnames(df)
+  missing_cols <- setdiff(target_columns, current_cols)
+
+  if (length(missing_cols) == 0) {
+    return(df %>% select(all_of(target_columns)))
+  }
+
+  # Add missing columns as NULL (STRING type for dynamic columns)
+  mutate_exprs <- list()
+  for (col in missing_cols) {
+    mutate_exprs[[col]] <- sql("CAST(NULL AS STRING)")
+  }
+
+  df %>%
+    mutate(!!!mutate_exprs) %>%
+    select(all_of(target_columns))
 }
 
 
