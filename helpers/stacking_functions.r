@@ -9,14 +9,35 @@ OFFICIAL_CLASS <- "Official Use"
 #' before entering the stacking pipeline. Stops with an informative error
 #' if any check fails.
 #'
-#' @param df A data.frame (or tibble) to validate.
+#' @param df A Spark DataFrame or local data.frame to validate.
 #' @param caller Name of the calling context, used in error messages.
 validate_metadata_inputs <- function(df, caller = "unknown") {
   errors <- character()
 
+  # Check if it's a Spark DataFrame (tbl_spark) or local data.frame
+  is_spark_df <- inherits(df, "tbl_spark")
+
   # quarter must be a non-null string ("NA" for annual surveys)
-  if ("quarter" %in% names(df) && any(is.na(df$quarter))) {
-    errors <- c(errors, "column 'quarter' contains NA values — use the string 'NA' for annual surveys")
+  if (is_spark_df) {
+    # For Spark DataFrames, first ensure the 'quarter' column exists
+    if (!"quarter" %in% colnames(df)) {
+      errors <- c(errors, "column 'quarter' is missing from metadata")
+    } else {
+      # For Spark DataFrames, check using Spark operations (only collect the count)
+      na_count <- df %>%
+        filter(is.na(quarter)) %>%
+        count() %>%
+        collect() %>%
+        pull(n)
+      if (na_count > 0) {
+        errors <- c(errors, sprintf("column 'quarter' contains %d NA values — use the string 'NA' for annual surveys", na_count))
+      }
+    }
+  } else {
+    # For local data.frames
+    if ("quarter" %in% names(df) && any(is.na(df$quarter))) {
+      errors <- c(errors, "column 'quarter' contains NA values — use the string 'NA' for annual surveys")
+    }
   }
 
   if (length(errors) > 0) {
@@ -180,6 +201,31 @@ align_dataframe_to_schema <- function(src_df, schema, country_val, survey_val, q
 }
 
 
+#' Pad a DataFrame with missing columns (as NULL) to match a target schema
+#'
+#' @param df Spark DataFrame to pad
+#' @param target_columns Character vector of all columns that should be present
+#' @return DataFrame with all target columns (missing ones filled with NULL as STRING)
+pad_dataframe_columns <- function(df, target_columns) {
+  current_cols <- colnames(df)
+  missing_cols <- setdiff(target_columns, current_cols)
+
+  if (length(missing_cols) == 0) {
+    return(df %>% select(all_of(target_columns)))
+  }
+
+  # Add missing columns as NULL (STRING type for dynamic columns)
+  mutate_exprs <- list()
+  for (col in missing_cols) {
+    mutate_exprs[[col]] <- sql("CAST(NULL AS STRING)")
+  }
+
+  df %>%
+    mutate(!!!mutate_exprs) %>%
+    select(all_of(target_columns))
+}
+
+
 #' Update metadata with new stacked versions
 #'
 #' @param metadata_df Original metadata DataFrame
@@ -231,17 +277,18 @@ get_delta_table_version <- function(table_name, sc) {
   # Split the name by the dots and quote each part individually
   parts <- unlist(strsplit(table_name, "\\."))
   quoted_parts <- paste0("`", parts, "`", collapse = ".")
-  
-  history_query <- sprintf("DESCRIBE HISTORY %s", quoted_parts)
-  
+
+  # Only fetch the latest version to avoid collecting entire history to driver
+  history_query <- sprintf("DESCRIBE HISTORY %s LIMIT 1", quoted_parts)
+
   # Execute
   history <- DBI::dbGetQuery(sc, history_query)
-  
+
   if (nrow(history) == 0) {
     stop(sprintf("No history found for table %s", table_name))
   }
-  
-  return(max(history$version))
+
+  return(history$version[1])
 }
 
 
