@@ -12,6 +12,9 @@ IN_DATABRICKS <- is_databricks()
 ROOT_DIR <- "/Volumes/prd_csc_mega/sgld48/vgld48/Documents"
 JSON_DIR <- "/Volumes/prd_csc_mega/sgld48/vgld48/Workspace/json_to_publish"
 
+# Performance
+BATCH_SIZE <- 30
+
 # Database
 TARGET_SCHEMA  <- "prd_csc_mega.sgld48"
 OUO_SCHEMA     <- "prd_mega.sgld48"

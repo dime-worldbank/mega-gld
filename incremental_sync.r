@@ -173,24 +173,16 @@ validate_processing_count(length(all_dfs), update_list)
 
 # COMMAND ----------
 
-# Write HARMONIZED_ALL
+# Batched write HARMONIZED_ALL
 t_step <- Sys.time()
-if (length(all_dfs) > 0) {
-  all_dfs <- c(list(harmonized_all_cleaned), all_dfs)
-  final_df <- do.call(sdf_bind_rows, all_dfs)
-  spark_write_table(final_df, HARMONIZED_ALL, mode = "overwrite", options = list("overwriteSchema" = "true"))
-}
+batched_write_table(all_dfs, harmonized_all_cleaned, HARMONIZED_ALL, sc)
 message(sprintf(">> Write HARMONIZED_ALL: %.1f sec", difftime(Sys.time(), t_step, units = "secs")))
 
 # COMMAND ----------
 
-# Write HARMONIZED_OFFICIAL
+# Batched write HARMONIZED_OFFICIAL
 t_step <- Sys.time()
-if (length(ouo_dfs) > 0) {
-  ouo_dfs <- c(list(harmonized_ouo_cleaned), ouo_dfs)
-  ouo_df <- do.call(sdf_bind_rows, ouo_dfs)
-  spark_write_table(ouo_df, HARMONIZED_OFFICIAL, mode = "overwrite", options = list("overwriteSchema" = "true"))
-}
+batched_write_table(ouo_dfs, harmonized_ouo_cleaned, HARMONIZED_OFFICIAL, sc)
 message(sprintf(">> Write HARMONIZED_OFFICIAL: %.1f sec", difftime(Sys.time(), t_step, units = "secs")))
 
 # COMMAND ----------

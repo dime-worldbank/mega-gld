@@ -386,6 +386,53 @@ validate_metadata_sync <- function(metadata_table_name, change_keys_df,
   
   message(sprintf("✓ Metadata sync validated: %d table(s) updated successfully", nrow(validation)))
   message(sprintf("✓ Actual Delta versions - ALL: %d, OUO: %d", all_current_version, ouo_current_version))
-  
+
   return(TRUE)
+}
+
+
+#' Materialize new DataFrames in batches to temp tables, then union with
+#' cleaned existing data for a single atomic overwrite of the production table.
+#'
+#' @param new_dfs      List of Spark DataFrames to append.
+#' @param cleaned_df   Spark DataFrame of existing records (already anti-joined).
+#' @param target_table Full production table name.
+#' @param sc           Spark connection.
+#' @param batch_size   Number of DataFrames per batch.
+batched_write_table <- function(new_dfs, cleaned_df, target_table, sc,
+                                batch_size = BATCH_SIZE) {
+  if (length(new_dfs) == 0) {
+    message(sprintf("No new data to write to %s — skipping.", target_table))
+    return(invisible(NULL))
+  }
+
+  temp_names <- character()
+  batches <- split(seq_along(new_dfs), ceiling(seq_along(new_dfs) / batch_size))
+
+  for (b in seq_along(batches)) {
+    idx <- batches[[b]]
+    tmp_name <- sprintf("tmp_batch_%d", b)
+    temp_names <- c(temp_names, tmp_name)
+
+    batch_df <- do.call(sdf_bind_rows, new_dfs[idx])
+    spark_write_table(batch_df, tmp_name, mode = "overwrite")
+    message(sprintf("  Materialized batch %d/%d (%d tables) -> %s",
+                    b, length(batches), length(idx), tmp_name))
+  }
+
+  # Read back temp tables and union with cleaned existing data
+  all_parts <- list(cleaned_df)
+  for (tmp_name in temp_names) {
+    all_parts <- c(all_parts, list(tbl(sc, tmp_name)))
+  }
+
+  final_df <- do.call(sdf_bind_rows, all_parts)
+  spark_write_table(final_df, target_table, mode = "overwrite",
+                    options = list("overwriteSchema" = "true"))
+
+  # Clean up temp tables
+  for (tmp_name in temp_names) {
+    DBI::dbExecute(sc, sprintf("DROP TABLE IF EXISTS %s", tmp_name))
+  }
+  message(sprintf("  Cleaned up %d temp table(s)", length(temp_names)))
 }
