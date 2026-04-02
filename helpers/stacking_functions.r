@@ -255,7 +255,10 @@ validate_change_detection <- function(change_keys_df) {
   message(sprintf("Found %d table(s) that need updating", num_changes))
   
   if (num_changes == 0) {
-    dbutils.notebook.exit("All tables are up-to-date. No stacking needed.")
+      if (exists("IN_DATABRICKS") && IN_DATABRICKS) {
+        dbutils.notebook.exit("All tables are up-to-date. No stacking needed.")
+      }
+      stop("All tables are up-to-date. No stacking needed.")
   }
 
     duplicate_check <- change_keys_df %>%

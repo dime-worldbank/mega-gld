@@ -50,7 +50,10 @@ change_keys <- identify_changes(metadata)
 
 num_changes <- validate_change_detection(change_keys)
 if (num_changes == 0) {
-  dbutils.notebook.exit(("No changes detected in metadata; execution halted: no updates to process."))
+    if (exists("IN_DATABRICKS") && IN_DATABRICKS) {
+      dbutils.notebook.exit("All tables are up-to-date. No stacking needed.")
+    }
+    stop("All tables are up-to-date. No stacking needed.")
 }
 message(sprintf(">> Identify changes: %.1f sec", difftime(Sys.time(), t_step, units = "secs")))
 
