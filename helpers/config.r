@@ -14,6 +14,9 @@ JSON_DIR <- "/Volumes/prd_csc_mega/sgld48/vgld48/Workspace/json_to_publish"
 CSV_HARMONIZED <- "/Volumes/prd_csc_mega/sgld48/vgld48/Workspace/harmonized_csv/"
 
 
+# Performance
+BATCH_SIZE <- 15
+
 # Database
 TARGET_SCHEMA  <- "prd_csc_mega.sgld48"
 OUO_SCHEMA     <- "prd_mega.sgld48"
