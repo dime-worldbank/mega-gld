@@ -30,7 +30,6 @@ if (!exists("create_dataset")) {
 # COMMAND ----------
 
 if (is_databricks()) {
-  library(sparklyr)
   sc <- spark_connect(method = "databricks")
 
   metadata <- tbl(sc, METADATA_TABLE) %>% collect()
@@ -42,6 +41,7 @@ if (is_databricks()) {
   ME_API_KEY <- ME_API_KEY
 
   json_files <- list.files(JSON_DIR, pattern="\\.json$", full.names=TRUE)
+  json_files <- json_files[!grepl("HARMONIZED", json_files)]
 
   results <- lapply(json_files, function(jfile){
     message("-----------------------------")
@@ -106,7 +106,7 @@ if (is_databricks()) {
     # # 6 publish project
     publish <- publish_project(project_id, ME_API_KEY, catalog_connection_id = CATALOG_CONN_ID)
     if (publish$success) {
-        cat("Published:", paste0("https://microdatalibqa.worldbank.org/index.php/catalog/", project_id), "\n")
+        cat("Published:", paste0("https://microdatalibqa.worldbank.org/index.php/catalog/study/", idno), "\n")
     } else {
         cat("Publish FAILED for", idno, "\n")
     }
